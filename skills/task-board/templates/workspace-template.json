@@ -1,0 +1,17 @@
+{
+  "type": "workspace-template",
+  "description": "Starter: one checklist widget titled 'Today' with 3 placeholder tasks.",
+  "suggestedWidgets": [
+    {
+      "kind": "checklist",
+      "title": "Today",
+      "payload": {
+        "items": [
+          { "id": "aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee", "label": "Task A", "done": false },
+          { "id": "bbbbbbbb-cccc-4ddd-eeee-ffffffffffff", "label": "Task B", "done": false },
+          { "id": "cccccccc-dddd-4eee-ffff-000000000000", "label": "Task C", "done": false }
+        ]
+      }
+    }
+  ]
+}

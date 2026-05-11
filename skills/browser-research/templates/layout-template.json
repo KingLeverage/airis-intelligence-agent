@@ -1,0 +1,6 @@
+{
+  "type": "layout-template",
+  "description": "Suggestion: keep browser panel visible alongside a note widget for capture.",
+  "recommendedWidgetKinds": ["note"],
+  "layoutHint": "Place note adjacent to browser context for copy-paste of quotes."
+}

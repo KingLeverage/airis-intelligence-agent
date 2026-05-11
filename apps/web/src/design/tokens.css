@@ -1,0 +1,122 @@
+/**
+ * AIRIS — “Iris Deepfield” design tokens
+ * Glass tiers: 1 = hero/command, 2 = cards, 3 = chips/ghost
+ */
+:root {
+  --airis-bg-0: #06111f;
+  --airis-bg-1: #0b1730;
+  --airis-bg-2: #12213f;
+
+  --airis-surface-glass-1: rgba(173, 216, 255, 0.08);
+  --airis-surface-glass-2: rgba(255, 255, 255, 0.1);
+  --airis-surface-glass-3: rgba(255, 255, 255, 0.06);
+
+  --airis-surface-tint-blue: rgba(100, 173, 255, 0.1);
+  --airis-surface-tint-iris: rgba(150, 120, 255, 0.08);
+  --airis-surface-tint-gold: rgba(255, 210, 120, 0.08);
+
+  --airis-border-glass: rgba(255, 255, 255, 0.18);
+  --airis-border-glass-strong: rgba(255, 255, 255, 0.28);
+  --airis-border-focus: rgba(126, 190, 255, 0.58);
+
+  --airis-text-primary: rgba(245, 249, 255, 0.96);
+  --airis-text-secondary: rgba(210, 224, 245, 0.78);
+  --airis-text-tertiary: rgba(176, 193, 220, 0.58);
+
+  --airis-accent-iris: #86b7ff;
+  --airis-accent-iris-2: #a48cff;
+  --airis-accent-gold: #f6cf7a;
+  --airis-accent-success: #88f0c4;
+  --airis-accent-warning: #f7bf75;
+  --airis-accent-danger: #ff8e9e;
+
+  --airis-shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.22);
+  --airis-shadow-glow: 0 0 24px rgba(134, 183, 255, 0.12);
+  --airis-shadow-focus: 0 0 0 1px rgba(126, 190, 255, 0.45), 0 0 24px rgba(126, 190, 255, 0.18);
+
+  --airis-radius-sm: 14px;
+  --airis-radius-md: 20px;
+  --airis-radius-lg: 28px;
+  --airis-radius-pill: 9999px;
+
+  --airis-blur-strong: 24px;
+  --airis-blur-mid: 16px;
+  --airis-blur-soft: 12px;
+
+  --airis-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --airis-duration-hover: 170ms;
+  --airis-duration-focus: 200ms;
+  --airis-duration-snap: 300ms;
+}
+
+.iris-deepfield {
+  color: var(--airis-text-primary);
+  background: radial-gradient(120% 80% at 50% 0%, var(--airis-bg-2) 0%, var(--airis-bg-0) 55%, #040a12 100%);
+}
+
+/* Named AIRIS atmospheres — driven by `data-airis-theme` on `.airis-app` */
+.iris-deepfield.airis-app[data-airis-theme="pearl-observatory"],
+.iris-deepfield.airis-app[data-airis-theme="light"] {
+  --airis-bg-0: #e8eef8;
+  --airis-bg-1: #dce6f4;
+  --airis-bg-2: #cfd9ec;
+
+  --airis-surface-glass-1: rgba(255, 255, 255, 0.55);
+  --airis-surface-glass-2: rgba(255, 255, 255, 0.42);
+  --airis-surface-glass-3: rgba(255, 255, 255, 0.28);
+
+  --airis-border-glass: rgba(20, 40, 80, 0.12);
+  --airis-border-glass-strong: rgba(20, 40, 80, 0.2);
+  --airis-border-focus: rgba(60, 120, 220, 0.55);
+
+  --airis-text-primary: rgba(12, 22, 42, 0.94);
+  --airis-text-secondary: rgba(28, 44, 72, 0.78);
+  --airis-text-tertiary: rgba(40, 58, 92, 0.52);
+
+  --airis-shadow-soft: 0 12px 32px rgba(20, 40, 80, 0.12);
+  --airis-shadow-glow: 0 0 24px rgba(80, 140, 255, 0.14);
+  --airis-shadow-focus: 0 0 0 1px rgba(60, 120, 220, 0.35), 0 0 20px rgba(60, 120, 220, 0.12);
+
+  color: var(--airis-text-primary);
+  background: radial-gradient(120% 85% at 50% 0%, #f6f9ff 0%, var(--airis-bg-0) 50%, #c8d4e8 100%);
+}
+
+.iris-deepfield.airis-app[data-airis-theme="iris-deepfield"],
+.iris-deepfield.airis-app[data-airis-theme="dark"] {
+  background: radial-gradient(120% 80% at 50% 0%, var(--airis-bg-2) 0%, var(--airis-bg-0) 55%, #040a12 100%);
+}
+
+.iris-deepfield.airis-app[data-airis-theme="aurora-lens"] {
+  --airis-bg-0: #031915;
+  --airis-bg-1: #082a26;
+  --airis-bg-2: #173f48;
+  --airis-surface-glass-1: rgba(136, 240, 196, 0.1);
+  --airis-surface-glass-2: rgba(154, 255, 218, 0.08);
+  --airis-surface-glass-3: rgba(154, 255, 218, 0.05);
+  --airis-surface-tint-blue: rgba(88, 210, 255, 0.08);
+  --airis-border-focus: rgba(136, 240, 196, 0.58);
+  --airis-accent-iris: #88f0c4;
+  --airis-accent-iris-2: #86d9ff;
+  --airis-shadow-glow: 0 0 26px rgba(136, 240, 196, 0.12);
+  background:
+    radial-gradient(90% 70% at 18% 0%, rgba(136, 240, 196, 0.18), transparent 58%),
+    radial-gradient(80% 80% at 80% 8%, rgba(134, 217, 255, 0.16), transparent 60%),
+    radial-gradient(120% 85% at 50% 0%, var(--airis-bg-2) 0%, var(--airis-bg-0) 58%, #020806 100%);
+}
+
+.iris-deepfield.airis-app[data-airis-theme="solar-archive"] {
+  --airis-bg-0: #171006;
+  --airis-bg-1: #2a1b08;
+  --airis-bg-2: #493116;
+  --airis-surface-glass-1: rgba(255, 210, 120, 0.1);
+  --airis-surface-glass-2: rgba(255, 229, 164, 0.08);
+  --airis-surface-glass-3: rgba(255, 229, 164, 0.05);
+  --airis-surface-tint-blue: rgba(255, 210, 120, 0.08);
+  --airis-border-focus: rgba(246, 207, 122, 0.58);
+  --airis-accent-iris: #f6cf7a;
+  --airis-accent-iris-2: #ff9f7a;
+  --airis-shadow-glow: 0 0 28px rgba(246, 207, 122, 0.12);
+  background:
+    radial-gradient(80% 72% at 50% 0%, rgba(246, 207, 122, 0.2), transparent 55%),
+    radial-gradient(120% 85% at 50% 0%, var(--airis-bg-2) 0%, var(--airis-bg-0) 58%, #090604 100%);
+}

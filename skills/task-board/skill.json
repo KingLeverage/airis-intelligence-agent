@@ -1,0 +1,14 @@
+{
+  "id": "task-board",
+  "name": "Task Board",
+  "description": "Create checklist widgets and organize work by action or completion state.",
+  "version": "0.1.0",
+  "category": "productivity",
+  "tags": ["tasks", "todo", "checklist", "kanban"],
+  "triggers": ["task", "todo", "checklist", "action items", "follow up"],
+  "allowedExecutionTypes": ["widget.create"],
+  "recommendedWidgets": ["checklist", "note"],
+  "promptHint": "Use for actionable lists and status tracking in the workspace.",
+  "entryInstructionFile": "SKILL.md",
+  "enabledByDefault": true
+}

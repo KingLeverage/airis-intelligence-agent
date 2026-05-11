@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AIRIS embedded browser</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        background: radial-gradient(ellipse 120% 80% at 50% 0%, #0c1828 0%, #05070d 55%, #020308 100%);
+        color: #cbd5e1;
+      }
+      .stars {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.45;
+        background-image:
+          radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.55), transparent),
+          radial-gradient(1px 1px at 78% 42%, rgba(186, 230, 253, 0.5), transparent),
+          radial-gradient(1px 1px at 40% 88%, rgba(255, 255, 255, 0.35), transparent),
+          radial-gradient(1px 1px at 90% 12%, rgba(165, 243, 252, 0.45), transparent);
+        background-size: 100% 100%;
+      }
+      .wrap {
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1.5rem;
+        text-align: center;
+      }
+      .orb {
+        width: 120px;
+        height: 120px;
+        margin-bottom: 1.5rem;
+        filter: drop-shadow(0 0 24px rgba(45, 212, 191, 0.35));
+      }
+      h1 {
+        margin: 0 0 0.5rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: #f1f5f9;
+      }
+      p {
+        margin: 0;
+        max-width: 28rem;
+        font-size: 0.875rem;
+        line-height: 1.55;
+        color: #94a3b8;
+      }
+      .hint {
+        margin-top: 1.25rem;
+        font-size: 0.75rem;
+        color: #5eead4;
+        opacity: 0.9;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stars" aria-hidden="true"></div>
+    <div class="wrap">
+      <svg class="orb" viewBox="0 0 120 120" aria-hidden="true">
+        <defs>
+          <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color: #e0f2fe" />
+            <stop offset="45%" style="stop-color: #38bdf8" />
+            <stop offset="100%" style="stop-color: #0c4a6e" />
+          </linearGradient>
+        </defs>
+        <circle cx="60" cy="60" r="52" fill="url(#g)" stroke="#0e7490" stroke-width="3" />
+        <ellipse cx="60" cy="58" rx="22" ry="26" fill="#0f172a" opacity="0.85" />
+        <circle cx="60" cy="56" r="10" fill="#22d3ee" opacity="0.95" />
+        <path
+          d="M 44 88 Q 60 96 76 88"
+          fill="none"
+          stroke="#0f172a"
+          stroke-width="2.5"
+          stroke-linecap="round"
+        />
+        <rect x="52" y="22" width="4" height="10" rx="2" fill="#0e7490" />
+        <circle cx="54" cy="20" r="4" fill="#22d3ee" />
+      </svg>
+      <h1>Embedded browser</h1>
+      <p>
+        This view is the AIRIS in-app browser shell. Use the address bar in the panel to open a page, or ask
+        AIRIS to navigate. Live fetch mode builds a structured page summary for the agent; some sites block
+        embedding.
+      </p>
+      <p class="hint">Tip: open this app with <code style="color: #bae6fd">?panel=browser</code> or run <code style="color: #bae6fd">npm run open:browser</code></p>
+    </div>
+  </body>
+</html>

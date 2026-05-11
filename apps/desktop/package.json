@@ -1,0 +1,14 @@
+{
+  "name": "@airis/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Electron shell — native BrowserView for workspace browsing (optional dev path)",
+  "main": "main.cjs",
+  "scripts": {
+    "dev": "electron .",
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^34.2.0"
+  }
+}

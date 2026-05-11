@@ -1,0 +1,33 @@
+{
+  "name": "airis-intelligence-agent",
+  "private": true,
+  "version": "0.1.0",
+  "description": "AIRIS Intelligence Agent — browser-first AI workspace",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run build:shared && concurrently -n server,web -c blue,green \"npm run dev -w @airis/server\" \"npm run dev -w @airis/web\"",
+    "dev:desktop": "npm run build:shared && concurrently -n server,web,electron -c blue,green,magenta \"npm run dev -w @airis/server\" \"npm run dev -w @airis/web\" \"wait-on tcp:127.0.0.1:5173 && npm run dev -w @airis/desktop\"",
+    "demo:refresh-flagship": "node scripts/refresh-flagship-demos.mjs",
+    "open:browser": "node scripts/open-browser.mjs",
+    "airis": "node scripts/airis-cli.mjs",
+    "sft:validate-path-a": "npm run sft:validate-path-a -w @airis/server --",
+    "sft:export-unsloth": "npm run sft:export-unsloth -w @airis/server --",
+    "sft:teacher-path-a": "npm run sft:teacher-path-a -w @airis/server --",
+    "setup:playwright": "cd apps/server && npx playwright install chromium",
+    "build:shared": "npm run build -w @airis/shared",
+    "build": "npm run build -w @airis/shared && npm run build -w @airis/server && npm run build -w @airis/web",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3",
+    "wait-on": "^8.0.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

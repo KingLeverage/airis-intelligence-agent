@@ -1,0 +1,16 @@
+@media (prefers-reduced-motion: reduce) {
+  .airis-motion *,
+  .airis-motion *::before,
+  .airis-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.airis-transition-surface {
+  transition:
+    transform var(--airis-duration-snap) var(--airis-ease-out),
+    box-shadow var(--airis-duration-focus) var(--airis-ease-out),
+    border-color var(--airis-duration-focus) var(--airis-ease-out);
+}

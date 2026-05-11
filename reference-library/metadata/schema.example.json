@@ -1,0 +1,14 @@
+{
+  "id": "ref-chart-donut-001",
+  "title": "Example donut — dark dashboard",
+  "type": "chart_screenshot",
+  "source": "internal",
+  "tags": ["donut", "dark", "distribution", "legend-bottom"],
+  "summary": "4-slice donut with muted grid and bottom legend; use for part-to-whole.",
+  "visual_notes": "White ring on panel; cyan accent sparingly.",
+  "layout_notes": "KPI strip above, chart 2/3 height.",
+  "chart_notes": "Max 6 slices; label outside for small slices.",
+  "palette_notes": "Iris teal + violet + amber; avoid pure red/green paired.",
+  "domain": "generic",
+  "quality_score": 0.85
+}

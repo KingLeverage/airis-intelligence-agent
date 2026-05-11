@@ -1,0 +1,14 @@
+{
+  "id": "research-assistant",
+  "name": "Research Assistant",
+  "description": "Gather, structure, and summarize findings into workspace widgets (notes, HTML cards, checklists).",
+  "version": "0.1.0",
+  "category": "research",
+  "tags": ["research", "analysis", "notes", "summary"],
+  "triggers": ["research", "summarize", "investigate", "find sources", "literature"],
+  "allowedExecutionTypes": ["widget.create", "browser.navigate"],
+  "recommendedWidgets": ["note", "html-card", "checklist"],
+  "promptHint": "Use for structured research output and cited summaries in widgets.",
+  "entryInstructionFile": "SKILL.md",
+  "enabledByDefault": true
+}

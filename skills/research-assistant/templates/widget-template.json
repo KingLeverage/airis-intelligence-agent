@@ -1,0 +1,8 @@
+{
+  "type": "widget-template",
+  "widgetKind": "note",
+  "titleHint": "Research notes",
+  "payloadDefaults": {
+    "content": "## Summary\n\n## Sources\n\n## Open questions\n"
+  }
+}
