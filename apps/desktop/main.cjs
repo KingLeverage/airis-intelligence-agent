@@ -281,15 +281,6 @@ function registerIpc() {
 
   ipcMain.handle("airis:native-browser:evaluate", async (_event, payload) => {
     const bv = await ensureBrowserViewReadyForNativeIpc();
-    try {
-      const probeResult = await bv.webContents.executeJavaScript(
-        "JSON.stringify({ iw: window.innerWidth, ih: window.innerHeight, dw: document.documentElement.clientWidth, dh: document.documentElement.clientHeight, vis: document.visibilityState })",
-        true,
-      );
-      console.log("[AIRIS desktop] viewport probe:", probeResult);
-    } catch (err) {
-      console.log("[AIRIS desktop] viewport probe failed:", String(err));
-    }
     if (!bv || bv.webContents.isDestroyed()) {
       return { ok: false, error: "no_browser_view" };
     }
