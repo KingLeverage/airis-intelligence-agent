@@ -9,6 +9,7 @@ import {
   HtmlCardPayloadSchema,
   MetricGridPayloadSchema,
   NewsFeedPayloadSchema,
+  LeadFinderPayloadSchema,
   NotePayloadSchema,
   ResearchCardPayloadSchema,
   DrumMachinePanelPayloadSchema,
@@ -173,6 +174,15 @@ export const WIDGET_KIND_DEFS = {
         { id: "00000000-0000-4000-8000-000000000003", label: "ARR", value: "$1.2M", trend: "up" },
       ],
     },
+  },
+  "lead-finder": {
+    kind: "lead-finder" as const,
+    label: "Lead finder",
+    tier: 2 as const,
+    description:
+      "Sortable lead spreadsheet from Google Maps + website badness audit. Payload { query, businesses:[{name,rating,reviewCount,phone,address,website,audit:{badnessScore,signals,techStack}}], counts, avgBadness }. Created/updated by POST /api/spaces/:spaceId/lead-finder/run. CSV download via GET /api/spaces/:spaceId/lead-finder/:widgetId/csv.",
+    payloadSchema: LeadFinderPayloadSchema,
+    examplePayload: { query: "plumber in Boise ID", businesses: [] },
   },
   "research-card": {
     kind: "research-card" as const,
@@ -585,7 +595,7 @@ export const WIDGET_KIND_DEFS = {
     label: "CLI catalog",
     tier: 2 as const,
     description:
-      "Operator presets plus **custom argv** for `coingecko-pp-cli` / `docker-hub-pp-cli` only (`POST …/cli-tools/run`). Responses include a **readableSummary** (JSON expanded to prose-style text when applicable). Not arbitrary shell.",
+      "Operator presets plus **custom argv** for allowlisted Printing Press `*-pp-cli` binaries (`POST …/cli-tools/run`). Responses include a **readableSummary** (JSON expanded to prose-style text when applicable). Not arbitrary shell.",
     payloadSchema: CliCatalogPayloadSchema,
     examplePayload: {
       recentRuns: [],

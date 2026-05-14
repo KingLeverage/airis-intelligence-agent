@@ -12,9 +12,38 @@ import {
 } from "./playwright-runtime.js";
 import { transcribeUrl } from "./transcribe.js";
 import { normalizeHttpUrl } from "./url-utils.js";
+import { requestNativeAction } from "./native-bridge.js";
 import { resolveExecutionTargetId } from "../execution/target-id.js";
 
 const MAX_ACTIONS = 500;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function asRecord(v: unknown): Record<string, unknown> | null {
+  return v && typeof v === "object" ? (v as Record<string, unknown>) : null;
+}
+
+function nativeExtractToTranscription(extractResult: unknown, fallbackUrl: string): BrowserPageTranscription {
+  const o = asRecord(extractResult);
+  if (!o || o.ok !== true) {
+    const err = typeof o?.error === "string" ? o.error : "native_extract_failed";
+    throw new Error(err);
+  }
+  const text = typeof o.text === "string" ? o.text : "";
+  const u = typeof o.url === "string" && o.url.trim() ? o.url : fallbackUrl;
+  const title = typeof o.title === "string" ? o.title : "Page";
+  return {
+    url: u,
+    title,
+    visibleTextSummary: text,
+    interactiveElements: [],
+    forms: [],
+    scrollPosition: 0,
+    capturedAt: new Date().toISOString(),
+  };
+}
 
 export type BrowserDispatchOutcome = {
   ok: boolean;
@@ -79,6 +108,44 @@ export async function dispatchBrowserExecution(
           session: s,
         };
       }
+      const useNative = block.payload.transport === "native";
+      if (useNative) {
+        try {
+          await requestNativeAction({
+            kind: "evaluate",
+            expression: `location.href = ${JSON.stringify(url)}`,
+          });
+          await sleep(2000);
+          const extractResult = await requestNativeAction({ kind: "extractText" });
+          const t = nativeExtractToTranscription(extractResult, url);
+          const session = await browserSession.applyNavigate(spaceId, t.url, t, userId, {
+            recordPriorUrl: true,
+          });
+          return {
+            ok: true,
+            message: "browser_navigated",
+            implemented: true,
+            userMessage: `Navigated (native BrowserView) to ${t.title} (${t.url})`,
+            session,
+          };
+        } catch (e) {
+          if (e instanceof Error && e.message === "native_bridge_unavailable") {
+            console.warn("[native-browser] bridge unavailable; falling back to default navigate");
+          } else {
+            const msg = e instanceof Error ? e.message : String(e);
+            const s = await browserSession.getSession(spaceId, userId);
+            return {
+              ok: false,
+              message: "browser.navigate_native_failed",
+              detail: msg.slice(0, 400),
+              implemented: false,
+              userMessage: `Native navigate failed: ${msg.slice(0, 200)}`,
+              session: s,
+            };
+          }
+        }
+      }
+
       try {
         const pwTx = await playwrightGotoUrl(spaceId, url);
         const t =
@@ -308,6 +375,68 @@ export async function dispatchBrowserExecution(
         scriptPreview: preview.length > 0 ? preview : "(empty)",
         createdAt: new Date().toISOString(),
       };
+      const useNativeEval = block.payload.transport === "native";
+      if (useNativeEval) {
+        try {
+          const raw = await requestNativeAction({ kind: "evaluate", expression: script });
+          const o = asRecord(raw);
+          if (!o || o.ok !== true) {
+            const detail = typeof o?.error === "string" ? o.error : "native_eval_failed";
+            const session = await browserSession.appendAction(spaceId, action, userId);
+            return {
+              ok: false,
+              message: "browser_evaluate_native_error",
+              detail,
+              implemented: true,
+              userMessage: `Native evaluate failed: ${detail}`,
+              session,
+            };
+          }
+          const resultJson = JSON.stringify(o.result);
+          const s0 = await browserSession.getSession(spaceId, userId);
+          const prev = s0.lastTranscription;
+          const summaryLine = `Native evaluate → ${resultJson}`;
+          const transcription: BrowserPageTranscription = prev
+            ? {
+                ...prev,
+                capturedAt: new Date().toISOString(),
+                visibleTextSummary: `${prev.visibleTextSummary}\n${summaryLine}`.slice(0, 200_000),
+              }
+            : {
+                url: s0.currentUrl ?? "",
+                title: "Native browser",
+                visibleTextSummary: summaryLine.slice(0, 200_000),
+                interactiveElements: [],
+                forms: [],
+                scrollPosition: 0,
+                capturedAt: new Date().toISOString(),
+              };
+          const session = await mergeTranscription(spaceId, userId, transcription, action);
+          return {
+            ok: true,
+            message: "browser_evaluate_ok",
+            implemented: true,
+            userMessage: `Evaluate result (JSON):\n${resultJson}\n\n(Native BrowserView.)`,
+            session,
+          };
+        } catch (e) {
+          if (e instanceof Error && e.message === "native_bridge_unavailable") {
+            console.warn("[native-browser] bridge unavailable; falling back to Playwright/fetch evaluate path");
+          } else {
+            const msg = e instanceof Error ? e.message : String(e);
+            const s = await browserSession.getSession(spaceId, userId);
+            return {
+              ok: false,
+              message: "browser.evaluate_native_failed",
+              detail: msg.slice(0, 400),
+              implemented: false,
+              userMessage: `Native evaluate failed: ${msg.slice(0, 200)}`,
+              session: s,
+            };
+          }
+        }
+      }
+
       if (!isPlaywrightBrowserEnabled() || !isPersonalBrowserEvalEnabled()) {
         const session = await browserSession.appendAction(spaceId, action, userId);
         return {

@@ -39,6 +39,10 @@ export * from "./constants/dataSourceKeys.js";
 export * from "./constants/executionTypes.js";
 export * from "./constants/browserActions.js";
 export * from "./constants/demoSpaceTemplates.js";
+export {
+  DEFAULT_LLM_MODEL_ID,
+  DEFAULT_OPENROUTER_MODEL_SLUG,
+} from "./constants/default-llm-model.js";
 export * from "./constants/widgetBuildPromptCatalogIndex.js";
 export * from "./utils/ids.js";
 export * from "./types/protocol.js";

@@ -12,6 +12,7 @@ export const WidgetKindSchema = z.enum([
   "timeline-panel",
   "news-feed",
   "metric-grid",
+  "lead-finder",
   "research-card",
   "comparison-panel",
   "sequencer-panel",
@@ -178,6 +179,52 @@ export const NewsFeedPayloadSchema = z.object({
   category: z.string().optional(),
   source: z.string().optional(),
   showTimestamps: z.boolean().optional(),
+});
+
+export const LeadFinderBusinessSchema = z.object({
+  name: z.string(),
+  rating: z.number().nullable().optional(),
+  reviewCount: z.number().int().nullable().optional(),
+  category: z.string().nullable().optional(),
+  address: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  hours: z.string().nullable().optional(),
+  reviewSnippet: z.string().nullable().optional(),
+  website: z.string().nullable().optional(),
+  hasDirections: z.boolean().optional().default(false),
+  audit: z
+    .object({
+      url: z.string().nullable().optional(),
+      finalUrl: z.string().nullable().optional(),
+      fetched: z.boolean().optional().default(false),
+      statusCode: z.number().int().nullable().optional(),
+      sslValid: z.boolean().nullable().optional(),
+      responseTimeMs: z.number().nullable().optional(),
+      contentBytes: z.number().nullable().optional(),
+      techStack: z.array(z.string()).optional().default([]),
+      signals: z
+        .array(z.object({ id: z.string(), label: z.string(), weight: z.number() }))
+        .optional()
+        .default([]),
+      badnessScore: z.number().min(0).max(100).optional().default(0),
+      error: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
+});
+
+export const LeadFinderPayloadSchema = z.object({
+  query: z.string().optional().default(""),
+  locationLabel: z.string().optional().default(""),
+  scrapedAt: z.string().optional().default(""),
+  sourceUrl: z.string().optional().default(""),
+  businessCount: z.number().int().optional().default(0),
+  websiteFound: z.number().int().optional().default(0),
+  noWebsiteCount: z.number().int().optional().default(0),
+  auditedCount: z.number().int().optional().default(0),
+  avgBadness: z.number().nullable().optional(),
+  durationMs: z.number().int().optional().default(0),
+  businesses: z.array(LeadFinderBusinessSchema).max(200).optional().default([]),
 });
 
 /** Models often emit neutral/stable/mixed; UI only distinguishes up / down / flat. */
@@ -894,6 +941,11 @@ export const MetricGridWidgetSchema = BaseWidgetFields.extend({
   data: MetricGridPayloadSchema,
 });
 
+export const LeadFinderWidgetSchema = BaseWidgetFields.extend({
+  kind: z.literal("lead-finder"),
+  data: LeadFinderPayloadSchema,
+});
+
 export const ResearchCardWidgetSchema = BaseWidgetFields.extend({
   kind: z.literal("research-card"),
   data: ResearchCardPayloadSchema,
@@ -1041,6 +1093,7 @@ export const AnyWidgetSchema = z.discriminatedUnion("kind", [
   TimelinePanelWidgetSchema,
   NewsFeedWidgetSchema,
   MetricGridWidgetSchema,
+  LeadFinderWidgetSchema,
   ResearchCardWidgetSchema,
   ComparisonPanelWidgetSchema,
   SequencerPanelWidgetSchema,

@@ -1,5 +1,7 @@
+import type { FastifyBaseLogger } from "fastify";
 import fs from "node:fs/promises";
 import { v4 as uuid } from "uuid";
+import type { ZodIssue } from "zod";
 import type { BrowserSession, ParsedExecutionBlock } from "@airis/shared";
 import {
   assertExportPdfPayloadSize,
@@ -15,6 +17,7 @@ import {
   WidgetDataSourceConfigSchema,
   WidgetRenderConfigSchema,
   WorkspaceComposePayloadSchema,
+  WorkflowRunPayloadSchema,
   type WidgetKind,
   type WidgetRecord,
 } from "@airis/shared";
@@ -35,6 +38,7 @@ import { mergeBundledSkillIntoCliCatalogData } from "../services/cli-tools/attac
 import { enrichCliRunForSpace } from "../services/cli-tools/enrich-cli-run.js";
 import { parseArgsText } from "../services/cli-tools/parse-cli-args.js";
 import { runAllowlistedCliTool, runCustomCliFromText } from "../services/cli-tools/run-cli-tool.js";
+import { composeLeadFinderMapsQuery, runLeadFinderForSpace } from "../services/lead-finder-runner.js";
 
 export type DispatchResult = {
   ok: boolean;
@@ -55,6 +59,13 @@ export type DispatchResult = {
     stdout: string;
     stderr: string;
     durationMs: number;
+  };
+  /** Populated when `workflow.run` completes (e.g. lead-finder widget). */
+  workflowRun?: {
+    widgetId: string;
+    kind: string;
+    businessCount: number;
+    avgBadness: number | null;
   };
 };
 
@@ -83,6 +94,7 @@ export async function dispatchExecution(
   block: ParsedExecutionBlock,
   spaceId: string,
   userId: string = DEFAULT_USER_ID,
+  log?: FastifyBaseLogger,
 ): Promise<DispatchResult> {
   try {
     switch (block.type) {
@@ -458,6 +470,77 @@ export async function dispatchExecution(
           detail: exportId,
           pdfExport: { exportId, filename },
         };
+      }
+      case "workflow.run": {
+        type WorkflowLog = Pick<FastifyBaseLogger, "info" | "warn">;
+        const execLog: WorkflowLog = log ?? { info: () => {}, warn: () => {} };
+        try {
+          const parsed = WorkflowRunPayloadSchema.safeParse(block.payload);
+          if (!parsed.success) {
+            return {
+              ok: false,
+              message: "dispatch_error",
+              detail: parsed.error.issues
+                .map((i: ZodIssue) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+                .join("; "),
+            };
+          }
+          const payload = parsed.data;
+          switch (payload.name) {
+            case "lead-finder": {
+              const mapsQuery = composeLeadFinderMapsQuery(payload.query, payload.location);
+              execLog.info(
+                { spaceId, name: payload.name, query: mapsQuery, maxResults: payload.maxResults },
+                "workflow.run start",
+              );
+              const out = await runLeadFinderForSpace({
+                spaceId,
+                userId,
+                mapsQuery,
+                audit: true,
+                maxResults: payload.maxResults,
+                log: execLog,
+              });
+              if (!out.ok) {
+                return { ok: false, message: "dispatch_error", detail: out.message };
+              }
+              if (out.businessCount === 0) {
+                execLog.warn({ spaceId, reason: "empty", businessCount: 0 }, "workflow.run smoke");
+              }
+              const avgStr = out.avgBadness == null ? "n/a" : String(out.avgBadness);
+              execLog.info(
+                {
+                  spaceId,
+                  name: payload.name,
+                  query: mapsQuery,
+                  durationMs: out.durationMs,
+                  widgetId: out.widgetId,
+                  businessCount: out.businessCount,
+                },
+                "workflow.run complete",
+              );
+              return {
+                ok: true,
+                message: `Lead-finder created widget ${out.widgetId} with ${out.businessCount} businesses (avg badness ${avgStr}).`,
+                workflowRun: {
+                  widgetId: out.widgetId,
+                  kind: "lead-finder",
+                  businessCount: out.businessCount,
+                  avgBadness: out.avgBadness,
+                },
+              };
+            }
+            default:
+              return {
+                ok: false,
+                message: "dispatch_error",
+                detail: `unknown_workflow_name: ${String(payload.name)}`,
+              };
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return { ok: false, message: "dispatch_error", detail: msg };
+        }
       }
       default:
         return { ok: false, message: "unknown_type" };

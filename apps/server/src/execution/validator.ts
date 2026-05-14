@@ -8,6 +8,7 @@ import {
   expandDashboardRecipe,
   parseWidgetPayload,
   WorkspaceComposePayloadSchema,
+  WorkflowRunPayloadSchema,
 } from "@airis/shared";
 import { normalizeHttpUrl } from "../browser/url-utils.js";
 import { resolveExecutionTargetId } from "./target-id.js";
@@ -214,6 +215,26 @@ function validateCliToolRun(
   };
 }
 
+function validateWorkflowRun(
+  block: ParsedExecutionBlock,
+): { ok: true; block: ParsedExecutionBlock } | { ok: false; message: string } {
+  if (block.targetSpace != null && block.targetSpace !== "current") {
+    return { ok: false, message: "targetSpace_must_be_current" };
+  }
+  const p = WorkflowRunPayloadSchema.safeParse(block.payload);
+  if (!p.success) {
+    return { ok: false, message: `invalid_workflow_payload:${p.error.message.slice(0, 280)}` };
+  }
+  return {
+    ok: true,
+    block: {
+      ...block,
+      targetSpace: "current",
+      payload: { ...p.data } as Record<string, unknown>,
+    },
+  };
+}
+
 function validateBrowserScroll(
   block: ParsedExecutionBlock,
 ): { ok: true; block: ParsedExecutionBlock } | { ok: false; message: string } {
@@ -275,6 +296,8 @@ export function validateChatPhaseExecution(
       return validateExportPdf(block);
     case "cli.tool.run":
       return validateCliToolRun(block);
+    case "workflow.run":
+      return validateWorkflowRun(block);
   }
   const _exhaustive: never = block.type;
   return _exhaustive;

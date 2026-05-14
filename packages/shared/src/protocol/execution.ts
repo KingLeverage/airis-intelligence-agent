@@ -81,9 +81,21 @@ export const ExecutionTypeSchema = z.enum([
    * Payload: `{ "toolKey": "…" }` for a catalog preset, or `{ "program": "coingecko-pp-cli", "argsText": "…" }` for custom argv.
    */
   "cli.tool.run",
+  /** Allowlisted server workflows (e.g. Maps lead-finder). */
+  "workflow.run",
 ]);
 
 export type ExecutionType = z.infer<typeof ExecutionTypeSchema>;
+
+/** Payload for `workflow.run` blocks (discriminated by `name`; extend with unions later). */
+export const WorkflowRunPayloadSchema = z.object({
+  name: z.literal("lead-finder"),
+  query: z.string().min(1).max(200),
+  location: z.string().max(120).optional(),
+  maxResults: z.coerce.number().int().min(1).max(60).optional().default(20),
+});
+
+export type WorkflowRunPayload = z.infer<typeof WorkflowRunPayloadSchema>;
 
 /** Parsed header + JSON payload from one EXECUTION block */
 export const ParsedExecutionBlockSchema = z.object({

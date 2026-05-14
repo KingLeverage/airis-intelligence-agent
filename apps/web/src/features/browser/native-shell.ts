@@ -18,6 +18,11 @@ export type AirisNativeShell = {
   reload(): Promise<unknown>;
   /** Top URL of the embedded BrowserView (for reconciling the address bar). */
   getCurrentUrl?: () => Promise<string>;
+  evaluate?(expression: string, timeoutMs?: number): Promise<unknown>;
+  /** OS-level wheel synthesis in the embedded BrowserView (desktop only). */
+  scrollWheel?(payload?: Record<string, unknown>): Promise<unknown>;
+  extractText?(): Promise<unknown>;
+  extractHtml?(): Promise<unknown>;
   onNavigated(cb: (url: string) => void): () => void;
   onRequestBoundsRefresh(cb: () => void): () => void;
 };

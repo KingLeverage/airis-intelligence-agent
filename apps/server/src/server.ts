@@ -12,6 +12,8 @@ import { registerWidgetRoutes } from "./routes/widgets.js";
 import { registerCliToolRoutes } from "./routes/cli-tools.js";
 import { registerSnapshotRoutes } from "./routes/snapshots.js";
 import { registerBrowserRoutes } from "./routes/browser.js";
+import { registerLeadFinderRoutes } from "./routes/lead-finder.js";
+import { registerNativeBrowserRoutes } from "./routes/native-browser.js";
 import { registerLlmRoutes } from "./routes/llm.js";
 import { registerProfileLlmRoutes } from "./routes/profile-llm.js";
 import { registerRecoveryRoutes } from "./routes/recovery.js";
@@ -45,6 +47,8 @@ await registerCliToolRoutes(app);
 await registerLayoutRoutes(app);
 await registerSnapshotRoutes(app);
 await registerBrowserRoutes(app);
+await registerLeadFinderRoutes(app);
+await registerNativeBrowserRoutes(app);
 await registerLlmRoutes(app);
 await registerProfileLlmRoutes(app);
 await registerRecoveryRoutes(app);
@@ -60,5 +64,18 @@ await store.initGlobalFiles();
 
 const port = getPort();
 const host = getHost();
-await app.listen({ port, host });
+try {
+  await app.listen({ port, host });
+} catch (err: unknown) {
+  const code =
+    err && typeof err === "object" && "code" in err
+      ? String((err as NodeJS.ErrnoException).code)
+      : undefined;
+  if (code === "EADDRINUSE") {
+    app.log.error(
+      `Port ${port} is already in use — stop the other process or pick another port (e.g. PORT=8788 npm run dev -w @airis/server). On macOS: lsof -nP -iTCP:${port} -sTCP:LISTEN`
+    );
+  }
+  throw err;
+}
 app.log.info(`AIRIS API listening on http://${host}:${port}`);

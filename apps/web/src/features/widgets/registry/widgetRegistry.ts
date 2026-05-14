@@ -28,6 +28,7 @@ import { checklistWidgetDefinition } from "./widgetDefinitions/checklistWidget";
 import { comparisonPanelWidgetDefinition } from "./widgetDefinitions/comparisonPanelWidget";
 import { drumMachinePanelWidgetDefinition } from "./widgetDefinitions/drumMachinePanelWidget";
 import { htmlCardWidgetDefinition } from "./widgetDefinitions/htmlCardWidget";
+import { leadFinderWidgetDefinition } from "./widgetDefinitions/leadFinderWidget";
 import { metricGridWidgetDefinition } from "./widgetDefinitions/metricGridWidget";
 import { newsFeedWidgetDefinition } from "./widgetDefinitions/newsFeedWidget";
 import { noteWidgetDefinition } from "./widgetDefinitions/noteWidget";
@@ -57,6 +58,7 @@ export function registerWidget(definition: WidgetDefinition): void {
   timelinePanelWidgetDefinition,
   newsFeedWidgetDefinition,
   metricGridWidgetDefinition,
+  leadFinderWidgetDefinition,
   researchCardWidgetDefinition,
   comparisonPanelWidgetDefinition,
   sequencerPanelWidgetDefinition,

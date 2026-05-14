@@ -16,6 +16,8 @@ export function defaultLayoutForKind(kind: WidgetKind): WidgetLayoutPosition {
       return { x: 0, y: 0, w: 6, h: 6 };
     case "metric-grid":
       return { x: 0, y: 0, w: 6, h: 5 };
+    case "lead-finder":
+      return { x: 0, y: 0, w: 12, h: 14 };
     case "research-card":
       return { x: 0, y: 0, w: 4, h: 6 };
     case "comparison-panel":
@@ -113,6 +115,7 @@ export function stackLayoutForIndex(kind: WidgetKind, index: number): WidgetLayo
     kind === "html-card" ||
     kind === "note" ||
     kind === "checklist" ||
+    kind === "lead-finder" ||
     kind === "sequencer-panel" ||
     kind === "drum-machine-panel" ||
     kind === "piano-roll-panel" ||

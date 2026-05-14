@@ -22,6 +22,11 @@ interface Window {
     goBack: () => Promise<unknown>;
     reload: () => Promise<unknown>;
     getCurrentUrl?: () => Promise<string>;
+    evaluate?: (expression: string, timeoutMs?: number) => Promise<unknown>;
+    /** OS-level mouse wheel (Electron `sendInputEvent`); used for Maps feed scroll. */
+    scrollWheel?: (payload?: Record<string, unknown>) => Promise<unknown>;
+    extractText?: () => Promise<unknown>;
+    extractHtml?: () => Promise<unknown>;
     onNavigated: (cb: (url: string) => void) => () => void;
     onRequestBoundsRefresh: (cb: () => void) => () => void;
   };
