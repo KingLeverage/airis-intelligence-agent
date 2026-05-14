@@ -1,76 +1,206 @@
-# apps/server — AGENTS.md
+# AGENTS.md — apps/server
 
-## Purpose
+Fastify server. Owns the dispatcher, persistence, LLM orchestration, browser
+automation routes, and all business logic. If logic doesn't live here, it's
+in the wrong place — move it.
 
-Thin **Fastify** API: filesystem persistence, LLM proxy, execution pipeline (parse → validate → dispatch), snapshots, browser transcribe.
+Parent contract: `/AGENTS.md` (repo root). This file extends and overrides
+the root for files under `apps/server/`.
 
-## Key files
+## Directory map
 
-- `src/server.ts` — bootstrap, CORS, route registration
-- `src/services/*` — **facades** re-exporting persistence, execution, LLM, browser, snapshots (Operator Space–style paths)
-- `src/persistence/*` — paths, atomic IO, space/widget/chat loaders; **layout** is derived from each widget’s embedded `layout` (legacy `layout.json` merged when a widget file omits layout)
-- `src/services/widgets/widget-mutations.ts` — validated widget create/update/delete (used by routes + snapshots)
-- `src/utils/api-response.ts` — `{ ok, data }` / `{ ok, error }` helpers for spaces/widgets/layout routes
-- `src/execution/*` — parser, validator, dispatcher, mutation logger
-- `src/snapshots/service.ts` — full-space snapshot files + `index.json`; disk scan skips corrupt `*.json`; restore validates bundle before write, pre-restore backup required to succeed
-- `src/snapshots/hooks.ts` — `snapshotAfterMutation` (respects `AUTO_SNAPSHOT`, `force: true`)
-- `src/recovery/service.ts` — `inspectSpace` / `inspectAllSpaces`, repair basics, disable widget, invalid snapshot counts
-- `src/snapshots/throttle.ts` — coalesces rapid **mutation** snapshots (`SNAPSHOT_MUTATION_MIN_INTERVAL_MS`)
-- `src/llm/*` — adapters + `prompt-builder.ts` + `resolve-llm-runtime.ts` + `openai-compatible-chat.ts`
-- `src/persistence/profile-llm-store.ts` — Zod-validated `profiles/{userId}/llm.json` (OpenRouter key + optional metadata; masked over HTTP)
-- `src/routes/profile-llm.ts` — `GET/PUT /api/profile/llm`, `POST /api/profile/llm/openrouter/validate` (models list probe, no chat spend)
-- `src/browser/transcribe.ts` — mock + cheerio fetch
-- `src/browser/preview-html.ts` — same-origin iframe HTML preview; search-host mirrors for readable static results
-- `src/browser/playwright-runtime.ts` — optional real Chromium when `AIRIS_PLAYWRIGHT=1`
+- `src/server.ts` — Fastify bootstrap, route registration, lifecycle.
+- `src/routes/` — HTTP endpoints. Thin: parse → call service → return.
+  Examples: `lead-finder.ts`, `browser.ts`.
+- `src/execution/` — The dispatcher. Single mutation entry point for
+  everything the LLM emits. `dispatcher.ts` is the switch over execution
+  types.
+- `src/services/` — Business logic. Facades over `persistence/`,
+  `execution/`, `llm/`, `browser/`, `snapshots/`. **Facades must not add
+  business logic** — they re-export and compose.
+- `src/persistence/` — Filesystem I/O. `paths.ts`, `fs-utils.ts`,
+  `space-store.ts`. See "Persistence rules" below.
+- `src/llm/` — Prompt building and adapter abstraction.
+  `prompt-builder.ts` is the source of truth for what the LLM knows how to do.
+  `adapters/` holds provider-specific clients (currently `mock-adapter.ts`).
+- `src/agents/` — Higher-level agent loops (multi-turn orchestration).
+- `src/data-source/` — External data fetchers (separate from `browser/`
+  which is for live page automation).
+- `src/skills/` — Reserved for the future SKILL.md loader. Do not put
+  TypeScript handlers here.
 
-## Workspace browser (iframe vs server fetch vs Playwright)
+## The dispatcher is sacred
 
-- **Operator web UI (`BrowserPanel`):** the iframe **`src` is the real `https://` URL**. The page executes in the **user’s desktop browser**; **remote JavaScript runs** in the iframe when the site allows framing (some return captchas or refuse embeds). This is **not** the same as server-side fetch.
-- **Server-side transcription (what most agent context uses on `fetch`):** `POST …/browser/navigate` with **`mode: fetch`** (and related transcribe paths) **fetches HTML on the server**, then **`transcribe.ts` / Cheerio** produce **static text** (scripts stripped, no execution of remote JS on Fastify). **`GET /api/spaces/:spaceId/browser/preview?url=…`** is the same class: **sanitized static HTML** for optional same-origin preview tooling. Heavy SPAs look thin unless `preview-html.ts` substitutes a mirror (Google/Bing/Yelp-style search → readable HTML, etc.).
-- **`mode: visual` on navigate:** updates session URL and a **minimal** transcription so the UI iframe tracks a URL **without** always re-fetching HTML on the server (reduces 403 noise on strict sites).
-- **True headless “Chrome on the server” (optional):** **`AIRIS_PLAYWRIGHT=1`** and **`npx playwright install chromium`** so `browser.navigate` / click / type / scroll drive **Chromium** in `playwright-runtime.ts` and snapshots can reflect a **live-rendered** DOM.
-- **Correct agent pattern for web search:** emit `browser.navigate` to a **full search-results URL** (`…/search?q=…`, encoded query). Do not narrate fake keystrokes into a search box unless Playwright is enabled and you are driving a real DOM.
-- **Personal page script (`browser.evaluate`):** optional **`AIRIS_PERSONAL_BROWSER_EVAL=1`** (with Playwright) runs model-supplied async **function body** inside the **headless** page — **not** in the React workspace. **Do not** turn on for multi-tenant or internet-exposed servers without a security review.
-- **Normal browser tab:** users use **↗** in the web UI when the iframe is blocked or they want a full tab. Execution stays **allowlisted `<<<EXECUTION`**.
+`src/execution/dispatcher.ts` is the **only** function allowed to mutate
+persisted workspace state from an LLM-driven request. Routes may call it;
+services may call it; nothing bypasses it for LLM-originated mutations.
 
-## Invariants
+Shape of every case:
 
-- Validate all writes with `@airis/shared` Zod schemas.
-- \`html-card\`: \`payload.html\` must not contain known placeholder YouTube video ids (e.g. canonical Rick-roll id); agents must embed **real** \`watch?v=\` / \`embed/\` ids from Browser context, user URLs, or citations.
-- Use atomic write (temp file + rename) for JSON files.
-- `chat.jsonl` append one JSON line per message.
+```ts
+case "widget.create": {
+  const payload = WidgetCreatePayload.safeParse(execution.payload);
+  if (!payload.success) return { ok: false, code: "invalid_payload", ... };
+  // call into services/, never inline the work here
+  return await createWidgetForSpace(spaceId, payload.data, userId);
+}
+```
 
-## REST contract
+Rules:
 
-See root README; paths under `/api`. Do not rename without updating `apps/web/src/lib/api.ts`.
+1. Every case **must** `safeParse` with a Zod schema from `@airis/shared`.
+   Never trust `execution.payload`.
+2. The case body should be ~5–15 lines: parse, delegate, return. Real work
+   lives in `services/`.
+3. Return a `DispatchResult` discriminated union. Never throw out of the
+   dispatcher — catch and return `{ ok: false, code, message }`.
+4. New execution types require the three-file rule from root AGENTS.md:
+   schema in `@airis/shared` + case here + prompt fragment in
+   `prompt-builder.ts`.
 
-- `GET /api/spaces/:spaceId/widgets/:widgetId/live-data` — allowlisted `dataSource.key` → `{ dataPatch, asOf, sourceKey?, warning? }` for client merge (no secrets in widget files).
-- **CLI catalog (Printing Press):** `GET /api/spaces/:spaceId/cli-tools/catalog` — `{ tools, runsEnabled, customPrograms }`. Each catalog tool includes **`program`**, **`familyId`**, and **`familyLabel`** for UI grouping. `POST …/cli-tools/run` accepts **either** `{ toolKey }` (catalog preset) **or** `{ program, argsText }` where `program` is allowlisted (`coingecko-pp-cli`, `docker-hub-pp-cli`, `pypi-pp-cli`, `recipe-goat-pp-cli`, … — see **`CUSTOM_CLI_PROGRAMS`**) and `argsText` is quote-aware argv text (no shell, restricted charset, max args). Response includes `commandLine`, `stdout`, `stderr`, and **`readableSummary`**: heuristic JSON-to-text first, then (unless **`AIRIS_CLI_SUMMARY_LLM=0`**) a short LLM pass using **`resolveLlmRuntime`** (same keys as chat—no separate billing product). Override model with **`AIRIS_CLI_SUMMARY_MODEL_ID`**; Anthropic path uses **`AIRIS_CLI_SUMMARY_ANTHROPIC_MODEL`** (default Haiku). **Disabled by default**; set **`AIRIS_CLI_TOOLS=1`**. Presets include CoinGecko ping/doctor/coins list/markets/trending/global/search, Docker Hub doctor/search, PyPI doctor / RSS newest / RSS recent, and Recipe Goat doctor / **goat** cross-site rank (example chocolate-cake query with `--limit` + `--agent`). Chat may emit **`cli.tool.run`** execution blocks (same allowlist). If the server is started from a GUI and misses shell `PATH`, set **`AIRIS_CLI_EXTRA_PATH`** (OS path separator) to directories containing `*-pp-cli` binaries (in addition to auto-prepended `$(go env GOPATH)/bin` and `~/go/bin`). The upstream `npx @mvanhorn/printing-press install …` flow uses **`go install`** — **Go must be installed** (e.g. `brew install go`) unless you use a pre-built `*-pp-cli` from [printing-press-library releases](https://github.com/mvanhorn/printing-press-library/releases).
-- `GET /api/spaces/:spaceId/exports` — list PDF exports for the space (`exportId`, optional `filename` from execution logs, `bytes`, `updatedAt`); scans `spaces/<spaceId>/exports/*.pdf`.
-- `GET /api/spaces/:spaceId/exports/pdf/:exportId?filename=…` — binary PDF from `spaces/<spaceId>/exports/<exportId>.pdf` (written by `export.pdf` execution). Query `filename` is sanitized for `Content-Disposition` (optional; defaults to `export.pdf`).
-- `GET /api/profile/llm` — masked LLM profile (never returns raw API keys).
-- `PUT /api/profile/llm` — merge-update profile secrets/metadata (`clearOpenrouter`, `openrouter.apiKey`, etc.).
-- `POST /api/profile/llm/openrouter/validate` — optional body `{ apiKey? }`; uses saved key when omitted; OpenRouter `GET /v1/models` only.
-- **Reference library (multimodal corpus):** files + `index.json` under `users/{userId}/reference-library/` (initialized from `initGlobalFiles`).
-  - `GET /api/reference-library` — list ingested assets (metadata only).
-  - `GET /api/reference-library/search?q=…` — token match over title, tags, caption, filename, and extracted text for `.txt`/`.md`.
-  - `POST /api/reference-library/ingest` — multipart: field `file` (required), optional `title`, `tags` (comma/semicolon/newline separated), `caption` (recommended for PDFs/images).
-  - `GET /api/reference-library/:id/file` — inline download of the stored blob (size-capped).
-  - `POST /api/reference-library/reindex-embeddings` — rebuild `files/*/embedding.json` for all entries (requires `AIRIS_EMBEDDING_MODEL` + API keys).
-  - **Ingest:** PDFs run through `pdf-parse` into `textExtract`. Images may use vision caption when multipart `autoCaption=1` and `AIRIS_VISION_CAPTION_MODEL` is set.
-  - **Search:** default blends keyword hits with cosine similarity when embeddings exist; `?mode=keyword` for text token match only.
-  - **Chat RAG:** unless `AIRIS_REFERENCE_RAG_PROMPT=0`, top hybrid hits are injected into the system prompt (see `reference-library-rag.ts`).
+## Adding a new execution type (mechanical recipe)
 
-## Synthetic fine-tuning (Path A)
+1. **Schema** — `packages/shared/src/executions/<type>.ts`:
+   ```ts
+   export const MyThingPayload = z.object({ ... });
+   export type MyThingPayload = z.infer<typeof MyThingPayload>;
+   ```
+   Re-export from `packages/shared/src/index.ts`.
 
-- **Spec (shared):** [`packages/shared/src/sft/synthetic-training-spec.ts`](../../packages/shared/src/sft/synthetic-training-spec.ts) — chat-phase `type:` list, teacher appendix, widget payload hints. **`stripExecutionFences`** lives in [`packages/shared/src/protocol/execution.ts`](../../packages/shared/src/protocol/execution.ts) (same semantics as persisted assistant chat).
-- **Validate JSONL:** `npm run sft:validate-path-a -w @airis/server -- <file.jsonl>` (see [`examples/sft/path-a.example.jsonl`](../../examples/sft/path-a.example.jsonl)).
-- **Export single `text` column (e.g. Unsloth):** `npm run sft:export-unsloth -w @airis/server -- <in.jsonl> <out.jsonl>` — delimiter format v1 is documented in `scripts/export-path-a-unsloth.ts`.
-- **Teacher → Path A rows:** set **`AIRIS_TEACHER_API_KEY`** (never commit keys); optional `AIRIS_TEACHER_BASE_URL`, `AIRIS_TEACHER_MODEL`, `AIRIS_TEACHER_OUT`. Run `npm run sft:teacher-path-a -w @airis/server -- --count 3`. Generated files under `examples/sft/generated/` are gitignored.
-- **Colab / Unsloth:** open [`examples/sft/airis_patha_unsloth_colab.ipynb`](../../examples/sft/airis_patha_unsloth_colab.ipynb) in Google Colab (File → Upload notebook, or open from GitHub). It loads Path A JSONL, applies the Llama 3.1 chat template, runs QLoRA, and can push to the Hub.
+2. **Service** — `apps/server/src/services/<area>/my-thing.ts`. This is
+   where the real work goes. Returns a typed result.
 
-## Extension points
+3. **Dispatcher case** — add to the switch in `dispatcher.ts`. Parse,
+   delegate, return.
 
-- New route module in `src/routes/`, register in `server.ts`.
-- New execution type: shared schema + validator + dispatcher + prompt docs.
-- \`export.pdf\`: optional per-section \`chartWidgetId\` (same-space widget) — raster embeds for \`chart-panel\` (Chart.js + \`chartjs-node-canvas\`), \`metric-grid\`, and \`comparison-panel\` (both via native \`canvas\`). Requires a successful \`npm install\` (native \`canvas\` build) in this workspace.
+4. **Prompt fragment** — add a section to `prompt-builder.ts` describing
+   the execution type with at least one realistic example. The LLM cannot
+   emit what it hasn't been told about.
+
+5. **Persistence (if needed)** — path helper in `persistence/paths.ts`,
+   store function in `persistence/space-store.ts`, schema in
+   `@airis/shared`.
+
+6. **Types** — `npm run typecheck -w @airis/server` must pass before
+   committing.
+
+## Services layer
+
+Services are **façades**. They orchestrate calls into `persistence/`,
+`execution/`, `llm/`, `browser/`. They do not contain inline business
+logic that should live in those lower layers.
+
+Allowed in a service:
+- Composing multiple persistence calls into a transaction-like sequence.
+- Calling an LLM adapter and post-processing the result.
+- Driving the BrowserView through `browser/` helpers.
+- Validating user-facing preconditions before delegating.
+
+Not allowed in a service:
+- Direct `fs` calls (use `persistence/fs-utils.ts`).
+- Inline Zod schema definitions (define in `@airis/shared`).
+- LLM provider details (use `llm/adapters/`).
+- Mutating persisted state outside the dispatcher path for LLM requests.
+
+## Persistence rules
+
+All persisted state lives under the user data directory, structured by
+`persistence/paths.ts`. The store is the only module that touches the
+filesystem.
+
+Hard rules:
+
+- **Writes** go through `atomicWriteJson` (single-object files) or
+  `appendJsonl` (append-only logs). Never `fs.writeFile` a JSON blob
+  directly.
+- **Reads** go through `readJsonWithSchema(path, Schema)`. This calls
+  `safeParse` internally. On failure: log, return `null` or skip the
+  record, **never throw**. A corrupt widget file must not crash the space.
+- **New artifact** = new path helper in `paths.ts` + new store function in
+  `space-store.ts` + new Zod schema in `@airis/shared`. All three.
+- **No migrations layer yet.** If a schema changes, the store function
+  must tolerate both shapes via `safeParse` fallback. Add a TODO comment
+  and we'll formalize migrations later.
+
+## LLM and prompt building
+
+`prompt-builder.ts` is currently the monolithic source of every prompt
+fragment the LLM sees. Until the SKILL.md loader lands:
+
+- New execution types **must** add a fragment here, or the LLM won't know
+  they exist.
+- Keep fragments terse and example-driven. One realistic
+  `<<<EXECUTION>>>` block beats three paragraphs of prose.
+- Don't add prompt fragments for capabilities that don't exist in the
+  dispatcher. The prompt and the dispatcher must stay in lockstep.
+
+When the SKILL.md loader lands, most of this file will be extracted into
+`src/skills/<name>/SKILL.md` folders. Write new fragments in a way that
+will port cleanly: self-contained sections with a clear trigger
+condition.
+
+## Routes
+
+Routes in `src/routes/` are thin HTTP adapters. Pattern:
+
+```ts
+fastify.post("/lead-finder/run", async (req, reply) => {
+  const parsed = LeadFinderRunRequest.safeParse(req.body);
+  if (!parsed.success) return reply.code(400).send({ error: "invalid" });
+  const result = await runLeadFinderForSpace(parsed.data);
+  return reply.send(result);
+});
+```
+
+Routes do not contain business logic. If a route is more than ~20 lines,
+the work belongs in a service.
+
+## Browser automation (server-side)
+
+The lead-finder and any future scraper drives the desktop's `BrowserView`
+over IPC, not Playwright. See `apps/desktop/AGENTS.md` for the IPC
+contract and the viewport gotchas.
+
+Server-side rules:
+
+- All Maps/web scraping goes through the `airis:native-browser:*` IPC
+  surface, surfaced server-side via `services/browser/` helpers.
+- Playwright is installed but reserved for cases the BrowserView path
+  genuinely cannot handle (e.g. multi-tab orchestration). Default to the
+  BrowserView.
+- Scrape runners (e.g. `lead-finder-runner.ts`) that create widgets
+  directly **must** call `nudgeLayoutBelowConflicts` from `@airis/shared`
+  before persisting layout. Re-runs via `updateWidgetForSpace` must not.
+
+## Testing and verification before commit
+
+1. `npm run typecheck -w @airis/server` — must pass.
+2. `npm run lint -w @airis/server` — must pass.
+3. For dispatcher changes: trigger the new execution type end-to-end via
+   the desktop app and confirm in `/tmp/airis-desktop.log`:
+   `grep -aE "<execution-type>|workflow\.run complete" /tmp/airis-desktop.log | tail -20`
+4. For persistence changes: verify atomicity by killing the server
+   mid-write (`pkill -9 -f "tsx watch"`) and confirming the on-disk file
+   is either the old or new version — never a partial JSON.
+
+## Things that have bitten us (server-side)
+
+- A widget runner that called `createWidgetForSpace` directly without
+  `nudgeLayoutBelowConflicts` caused every new lead-finder widget to
+  stack at (0,0). The dispatcher's `widget.create` path does this
+  correctly; runners must mirror it.
+- Adding a dispatcher case without a corresponding prompt fragment means
+  the LLM never emits the new execution type. Silent failure.
+- `safeParse` on widget reads is non-negotiable. We've shipped corrupt
+  widget files before and a `throw` here takes down the whole space load.
+- Logs may interleave from concurrent processes. When grepping
+  `/tmp/airis-desktop.log`, always use `grep -a` (binary-safe) and filter
+  by `reqId` when available.
+
+## Out of scope here
+
+- Auth / multi-user (single user, default ID in `dispatcher.ts`).
+- The SKILL.md loader (planned — `src/skills/` is reserved but empty).
+- Per-space prompt overrides.
+
+Do not scaffold these speculatively.

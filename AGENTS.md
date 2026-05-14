@@ -1,45 +1,153 @@
-# AIRIS Intelligence Agent — root AGENTS.md
+# AGENTS.md — AIRIS Intelligence Agent (root)
 
-## Purpose
+This file is the contract every coding agent reads before touching this repo.
+Subsystem rules live in `apps/<area>/AGENTS.md`. When those conflict with this
+file, the subsystem doc wins for files inside that area.
 
-Monorepo for **AIRIS Intelligence Agent**: a browser-first operator workspace with a thin Fastify API, shared Zod schemas, and file-based persistence.
+## What AIRIS is
 
-## Layout
+A desktop intelligence workspace. Electron hosts a hidden Chromium
+`BrowserView` for headless web automation (Google Maps scraping, etc.); a
+Fastify server owns all business logic, persistence, and LLM orchestration; a
+React renderer displays widgets that mirror server state.
 
-| Path | Role |
-|------|------|
-| `apps/web` | Vite + React + TypeScript + Tailwind + Zustand |
-| `apps/server` | Fastify REST API, LLM proxy, persistence, execution pipeline |
-| `apps/desktop` | Optional **Electron** shell: native `BrowserView` over the workspace browser (IPC from `BrowserPanel` when `window.airisNativeShell` is present). Run `npm run dev:desktop`. Window is **always-on-top** by default; set `AIRIS_ELECTRON_ALWAYS_ON_TOP=0` to disable. |
-| `packages/shared` | Zod schemas and inferred types — **single source of truth** |
+The agent's job is to read user intent, emit `<<<EXECUTION>>>` blocks, and let
+the server mutate the workspace. The agent never mutates UI state directly.
 
-## Widget runtime (first-class subsystem)
+## Architecture rule (read this first)
 
-- Widgets are **typed, file-persisted records** (`WidgetRecord`): `kind`, `data`, `layout`, optional `renderConfig`, `dataSource`, `authoringNote`.
-- **Renderers are trusted registry components** in `apps/web` — no `eval` of model-supplied code. Persistence = schema + data + layout metadata.
-- **Live data:** `dataSource.key` references **server-allowlisted** adapters only (`WELL_KNOWN_DATA_SOURCE_KEYS` + `live-data-service`). Secrets never belong in widget JSON.
-- **Workspace UI:** `WorkspaceCanvas` uses a draggable grid; layout changes persist via widget PATCH.
-- **Multi-widget / multi-action:** The model may emit **multiple** `<<<EXECUTION` blocks per reply; the server dispatches them in order (see `parseModelResponseMulti`, `chat-runner`).
-- See **`architecture.md`** for the full widget-runtime section.
+**Server-first.** Logic, validation, persistence, and side effects live in
+`apps/server`. The web app renders server state and dispatches executions. The
+desktop app is a thin shell that hosts the renderer and exposes Chromium IPC.
 
-## Workspace browser
+If you are tempted to put business logic in `apps/web` or `apps/desktop`, stop
+and put it in `apps/server` instead.
 
-Three surfaces: **(1)** The web **iframe** loads the real URL in the **operator’s** browser—remote JS runs there if the site allows embedding. **(1b)** **`apps/desktop` + `npm run dev:desktop`:** Electron embeds a native **`BrowserView`** (real Chromium, real origins) over the browser panel via preload IPC—closest to “Space Agent–style” in-app browsing without replacing the whole web stack. **(2)** **Server-side** `browser.navigate` **fetch** mode and **`/browser/preview`** fetch HTML and strip scripts for **static transcription** (no remote JS on the server). **(3)** **`AIRIS_PLAYWRIGHT=1`** + **`npx playwright install chromium`** runs **headless Chromium on the server** for real DOM automation and live-rendered snapshots. Optional **`browser.evaluate`** (`AIRIS_PERSONAL_BROWSER_EVAL=1` + Playwright) runs model script in that headless page—not in the React shell. Details: **`architecture.md`**, **`apps/server/AGENTS.md`**. **Search / SPAs:** `browser.navigate` to a **full results URL** where needed.
+## Monorepo layout
 
-## Invariants
+- `apps/server` — Fastify server. Owns dispatcher, persistence, LLM prompt
+  building, lead-finder runner, browser routes. Single source of truth.
+- `apps/web` — React 19 + Vite 6 + Tailwind 4 renderer. Widgets only.
+- `apps/desktop` — Electron main process (`main.cjs`) + preload. Hosts a
+  `BrowserView` for native automation and exposes it over IPC.
+- `packages/shared` — Zod schemas, widget layout helpers, types shared across
+  server/web/desktop. The only package both runtimes import.
 
-1. All entities read from disk MUST be validated with Zod (`safeParse`); corrupt files must not crash the recovery UI.
-2. Execution only accepts allowlisted `type` values defined in `packages/shared`.
-3. Per-widget `layout` is stored on each widget file; aggregate `layout.json` may exist for legacy/overlays — widget layout is authoritative for the canvas grid.
-4. Transient LLM context (widget summaries, browser transcription) is composed per request — not stored wholesale in `chat.jsonl`.
+## The execution contract
 
-## Extension points
+The LLM emits fenced blocks of the form:
 
-- **New widget kind:** Add kind to `WidgetKindSchema`, payload schema, registry in `apps/web/src/features/widgets`, and dispatcher branch in `apps/server/src/execution/dispatcher.ts`.
-- **New LLM provider:** Implement adapter in `apps/server/src/llm/` and wire in `respond.ts`.
+    <<<EXECUTION>>>
+    { "type": "widget.create", "payload": { ... } }
+    <<</EXECUTION>>>
 
-## Do not break
+Every execution type is:
 
-- Shared package exports consumed by both apps.
-- REST paths documented in `apps/server/AGENTS.md`.
-- `<<<EXECUTION` … `>>>END` protocol contract in `packages/shared/src/protocol/execution.ts`.
+1. Declared as a Zod schema in `@airis/shared`.
+2. Handled by a `case` in `apps/server/src/execution/dispatcher.ts`.
+3. Documented as a prompt fragment in `apps/server/src/llm/prompt-builder.ts`.
+
+If any of those three are missing, the capability does not exist. Adding a
+capability means touching all three — no exceptions.
+
+Current execution types include: `widget.create`, `widget.createMany`,
+`widget.update`, `widget.move`, `widget.resize`, `widget.delete`,
+`layout.update`, `workspace.compose`, `browser.{navigate,back,click,type,scroll,evaluate}`,
+`space.{create,delete}`, `snapshot.create`, `cli.tool.run`, `export.pdf`,
+`workflow.run`, `lead-finder.*`.
+
+## Persistence model
+
+File-backed JSON tree under the user data dir, mediated by
+`apps/server/src/persistence/space-store.ts`. Rules:
+
+- All writes go through `atomicWriteJson` / `appendJsonl` in `fs-utils.ts`.
+- All reads go through `readJsonWithSchema` and **always** `safeParse` — never
+  throw on a corrupt widget file; log and skip.
+- A new persisted artifact requires: a path helper in `paths.ts`, a store
+  function in `space-store.ts`, and a Zod schema in `@airis/shared`.
+- There is no per-user override layer (yet). One user, one data tree.
+
+## Widget layout
+
+New widgets must not stack on top of existing ones. Use the helpers in
+`@airis/shared`:
+
+```ts
+import { defaultLayoutForKind, nudgeLayoutBelowConflicts } from "@airis/shared";
+
+const base = defaultLayoutForKind("lead-finder");
+const desired = { ...base, h: heightForRows(rows.length) };
+const existing = await store.listWidgetRecords(spaceId, userId);
+const layout = nudgeLayoutBelowConflicts(desired, existing);
+```
+
+The dispatcher already does this for `widget.create`. Any runner that calls
+`createWidgetForSpace` directly (e.g. `lead-finder-runner.ts`) must do it too.
+Re-runs that call `updateWidgetForSpace` must **not** nudge — user layout is
+preserved on re-run.
+
+## Dev workflow
+
+- Start everything: `npm run dev:desktop` from repo root. Logs to
+  `/tmp/airis-desktop.log`.
+- Vite must bind to `127.0.0.1:5173` (not `localhost`) so Electron's IPv4
+  loader connects. Do not revert this.
+- Inspect scraping runs:
+  `grep -aE "maps\.scroll diag|maps\.harvest|workflow\.run complete" /tmp/airis-desktop.log | tail -40`
+- Logs may contain binary bytes — always use `grep -a`.
+- Clean restart pattern:
+  ```
+  pkill -9 -f "@airis"; pkill -9 -f "tsx watch"; pkill -9 -f "vite"
+  pkill -9 -f "electron apps/desktop"
+  sleep 2
+  rm -f /tmp/airis-desktop.log
+  npm run dev:desktop 2>&1 | tee /tmp/airis-desktop.log
+  ```
+
+## Toolchain invariants
+
+- Node `>=20`, ES modules everywhere. No CommonJS in `apps/server` or
+  `apps/web`. `apps/desktop/main.cjs` is the deliberate exception (Electron
+  main).
+- TypeScript strict. Run `npm run typecheck -w @airis/server` (and the
+  equivalent for other workspaces) before committing.
+- Zod is the only runtime validator. Do not introduce ajv, yup, joi, etc.
+- Fastify 5 on the server. React 19 + Tailwind 4 on the web. Playwright is
+  available but the lead-finder uses the Electron `BrowserView` path, not
+  Playwright — keep it that way unless a feature genuinely needs Playwright.
+
+## Checklist: adding a new capability
+
+1. Define the payload schema in `packages/shared/src/...` and export it.
+2. Add a `case` in `apps/server/src/execution/dispatcher.ts` that parses with
+   the schema and calls a service.
+3. Put the actual work in `apps/server/src/services/<area>/...`, never inline
+   in the dispatcher.
+4. Add a prompt fragment in `apps/server/src/llm/prompt-builder.ts` so the LLM
+   knows the execution type exists, with at least one example.
+5. If the capability persists data, add a path helper + store function.
+6. If the capability renders, add a widget kind in `apps/web/src/features/...`
+   that reads from server state.
+7. Update the relevant subsystem `AGENTS.md`.
+
+## Things that have bitten us (do not repeat)
+
+- A `BrowserView` positioned at `x: -10000` makes Chromium report
+  `visibilityState: "hidden"` and freezes layout at 0×0. Keep the view inside
+  the parent window's drawable region. See `apps/desktop/AGENTS.md`.
+- Vite bound to `localhost` resolves to `::1` on macOS and Electron's loader
+  fails silently. Bind to `127.0.0.1`.
+- Widget runners that bypass the dispatcher must still call
+  `nudgeLayoutBelowConflicts`, or new widgets stack at (0,0).
+- `grep` without `-a` on `/tmp/airis-desktop.log` silently treats the file as
+  binary and prints nothing.
+
+## Out of scope right now
+
+- Multi-user / auth (single user, default ID in `dispatcher.ts`).
+- Plugin API / dynamic skill loading (planned — see roadmap).
+- Per-user or per-space prompt overrides.
+
+Treat these as deliberate omissions, not missing features. Do not add scaffolding
+for them speculatively.
