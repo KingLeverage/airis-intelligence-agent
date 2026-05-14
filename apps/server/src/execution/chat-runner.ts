@@ -6,6 +6,7 @@ import type {
   ParsedExecutionBlock,
   SkillPromptMetrics,
 } from "@airis/shared";
+import type { FastifyBaseLogger } from "fastify";
 import * as store from "../persistence/space-store.js";
 import * as browserSession from "../browser/session-store.js";
 import { parseModelResponseMulti } from "./response-parser.js";
@@ -56,7 +57,12 @@ export async function finalizeAssistantResponse(
   assistantRaw: string,
   userId: string,
   t0: number,
-  opts?: { activeSkillIds?: string[]; skillPromptMetrics?: SkillPromptMetrics; modelId?: string },
+  opts?: {
+    activeSkillIds?: string[];
+    skillPromptMetrics?: SkillPromptMetrics;
+    modelId?: string;
+    log?: FastifyBaseLogger;
+  },
 ): Promise<FinalizeChatResult> {
   const parsed = parseModelResponseMulti(assistantRaw);
   let assistantTextOut = parsed.assistantText;
@@ -79,6 +85,23 @@ export async function finalizeAssistantResponse(
     errorMessage = parsed.parseError;
   } else if (parsed.blocks.length === 0) {
     status = "parsed";
+    // The model produced no execution block. If it also sounded like it
+    // promised to execute something (with a numeric target, to avoid
+    // matching conversational filler like "I'll find that"), surface a
+    // soft prompt to the user. Only fires when nothing actually ran.
+    const PROMISED_EXECUTION =
+      /(?:^|[.!?]\s+)(I'?ll\s+(?:search|find|scrape|look\s+up)\s+(?:for\s+)?\d+|let me\s+(?:search|find|scrape)\s+(?:for\s+)?\d+|executing the (?:search|workflow|lead[- ]finder))/i;
+    if (PROMISED_EXECUTION.test(assistantRaw)) {
+      opts?.log?.warn(
+        { assistantTextPrefix: assistantRaw.slice(0, 200) },
+        "chat-runner.promised-but-no-block",
+      );
+      const softNote =
+        '\n\n⚠️ _Internal note: I said I would run a workflow but didn\'t emit one. Try rephrasing — e.g. "find me 20 plumbers in Chicago"._';
+      assistantTextOut = assistantTextOut.trim()
+        ? `${assistantTextOut.trim()}${softNote}`
+        : softNote;
+    }
   } else {
     const allCreatedIds: string[] = [];
     const kindLabels: string[] = [];
@@ -89,6 +112,7 @@ export async function finalizeAssistantResponse(
     const spaceNotes: string[] = [];
     const cliRunSummaries: string[] = [];
 
+    let lastFailedDispatchBlock: ParsedExecutionBlock | undefined;
     for (const block of parsed.blocks) {
       const v = validateChatPhaseExecution(block);
       if (!v.ok) {
@@ -103,13 +127,14 @@ export async function finalizeAssistantResponse(
           continue;
         }
       }
-      const dispatchResult = await dispatchExecution(v.block, spaceId, userId);
+      const dispatchResult = await dispatchExecution(v.block, spaceId, userId, opts?.log);
       if (dispatchResult.browser) {
         lastBrowser = dispatchResult.browser;
       }
       if (!dispatchResult.ok) {
         failedMessage = dispatchResult.message;
         failedDetail = dispatchResult.detail;
+        lastFailedDispatchBlock = v.block;
         break;
       }
       if (dispatchResult.message === "cli_tool_ran" && dispatchResult.cliToolRun) {
@@ -128,6 +153,10 @@ export async function finalizeAssistantResponse(
           kindLabels.push(...dispatchResult.composedWidgetKinds);
         }
       }
+      if (dispatchResult.workflowRun?.widgetId) {
+        allCreatedIds.push(dispatchResult.workflowRun.widgetId);
+        kindLabels.push(dispatchResult.workflowRun.kind);
+      }
       if (dispatchResult.message === "space_created" && dispatchResult.detail) {
         spaceNotes.push(`Created workspace ${dispatchResult.detail}`);
       }
@@ -145,6 +174,11 @@ export async function finalizeAssistantResponse(
     } else if (failedMessage) {
       status = "failed";
       errorMessage = failedDetail ?? failedMessage;
+      if (lastFailedDispatchBlock?.type === "workflow.run") {
+        const detail = (failedDetail ?? failedMessage ?? "").trim();
+        const human = `⚠️ Lead-finder couldn't run: ${detail || "Unknown error"}. Try opening the Browser panel once in this workspace, then ask again.`;
+        assistantTextOut = assistantTextOut.trim() ? `${assistantTextOut.trim()}\n\n${human}` : human;
+      }
     } else {
       status = "applied";
       if (allCreatedIds.length > 0) {
