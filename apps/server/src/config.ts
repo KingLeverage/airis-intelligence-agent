@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { DEFAULT_LLM_MODEL_ID } from "@airis/shared";
 
 export function getDataDir(): string {
   return process.env.DATA_DIR ?? path.resolve(process.cwd(), "data");
@@ -23,7 +24,8 @@ export function getHost(): string {
 export const DEFAULT_USER_ID = "default";
 
 export function getDefaultModelId(): string {
-  return process.env.DEFAULT_MODEL_ID ?? "mock";
+  const fromEnv = process.env.DEFAULT_MODEL_ID?.trim();
+  return fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_LLM_MODEL_ID;
 }
 
 /** When false, widget/layout/dispatcher hooks skip automatic mutation snapshots. */

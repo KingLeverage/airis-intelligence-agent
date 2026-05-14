@@ -1,3 +1,4 @@
+import { DEFAULT_OPENROUTER_MODEL_SLUG } from "@airis/shared";
 import { getDefaultModelId } from "../config.js";
 import { readProfileLlm } from "../persistence/profile-llm-store.js";
 import {
@@ -58,7 +59,7 @@ export async function resolveLlmRuntime(userId: string, modelId: string | undefi
   if (id.startsWith(OPENROUTER_PREFIX)) {
     const slug = id.slice(OPENROUTER_PREFIX.length).trim();
     const model =
-      slug || profile.openrouter?.defaultModel?.trim() || "openai/gpt-4o-mini";
+      slug || profile.openrouter?.defaultModel?.trim() || DEFAULT_OPENROUTER_MODEL_SLUG;
     const r = buildOpenRouterRuntime(profile, model);
     return r ?? { kind: "mock" };
   }

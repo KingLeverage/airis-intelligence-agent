@@ -260,6 +260,26 @@ payload:
 >>>END`;
   }
 
+  const wantsLeadFinder =
+    /\b(find me|give me|get me|show me|leads?|prospects?|businesses?)\b/i.test(userMessage) &&
+    (/\bplumber|dentist|contractor|electrician|hvac|roof/i.test(t) ||
+      /\bin\s+[a-z][a-z\s,.-]{2,40}\b/i.test(userMessage));
+
+  if (wantsLeadFinder) {
+    const inBoise = /\bboise\b/i.test(t);
+    const payload = inBoise
+      ? `{"name":"lead-finder","query":"plumber","location":"Boise ID","maxResults":20}`
+      : `{"name":"lead-finder","query":"local service businesses","maxResults":20}`;
+    return `📍 Running the **lead-finder** workflow (Google Maps + audits) and adding a widget.
+
+<<<EXECUTION
+type: workflow.run
+targetSpace: current
+payload:
+${payload}
+>>>END`;
+  }
+
   return `Mock mode — ask to open the browser, paste a URL, create a note, create/delete a workspace (paste a space UUID to delete), or switch to a real model in Model & API settings.`;
 }
 

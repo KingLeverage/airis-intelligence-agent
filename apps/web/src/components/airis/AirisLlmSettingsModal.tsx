@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { DEFAULT_LLM_MODEL_ID, DEFAULT_OPENROUTER_MODEL_SLUG } from "@airis/shared";
 import { api, type ProfileLlmPutBody } from "../../lib/api";
 import { useSessionStore } from "../../stores/session-store";
 
@@ -8,10 +9,25 @@ type Props = {
 };
 
 const DEFAULT_ENDPOINT_DISPLAY = "https://openrouter.ai/api/v1/chat/completions";
-const DEFAULT_MODEL = "anthropic/claude-3.5-sonnet";
+const DEFAULT_MODEL: string = DEFAULT_OPENROUTER_MODEL_SLUG;
 /** Per-reply completion (output) budget — not total context. Large values are capped server-side to fit the model window. */
 const DEFAULT_MAX_TOKENS = 8192;
 const DEFAULT_PARAMS = "temperature: 0.2\n";
+
+/** Shown as completions on the OpenRouter “Model name” field (slug only, no `openrouter:` prefix). */
+const OPENROUTER_MODEL_NAME_SUGGESTIONS = [
+  "inclusionai/ring-2.6-1t:free",
+  "openai/gpt-4o-mini",
+  "openai/gpt-4.1-nano",
+  "openai/gpt-5.4-image-2",
+  "google/gemini-2.0-flash-001",
+  "anthropic/claude-3.5-haiku",
+  "anthropic/claude-haiku-4.5",
+  "anthropic/claude-3.5-sonnet",
+  "anthropic/claude-opus-4.7",
+  "anthropic/claude-opus-4.7-fast",
+  "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+] as const;
 
 function toStoredBase(displayUrl: string): string {
   let u = displayUrl.trim().replace(/\/$/, "");
@@ -40,7 +56,6 @@ function normalizeBudgetTriplet(sys: number, hist: number): { sys: number; hist:
 }
 
 export function AirisLlmSettingsModal({ open, onClose }: Props) {
-  const [tab, setTab] = useState<"api" | "local">("api");
   const [apiKeyDraft, setApiKeyDraft] = useState("");
   const [providerEndpoint, setProviderEndpoint] = useState(DEFAULT_ENDPOINT_DISPLAY);
   const [modelName, setModelName] = useState(DEFAULT_MODEL);
@@ -123,7 +138,7 @@ export function AirisLlmSettingsModal({ open, onClose }: Props) {
       await api.putProfileLlm({ openrouter });
       setApiKeyDraft("");
       await load();
-      const slug = (modelName.trim() || "openai/gpt-4o-mini").replace(/^openrouter:/, "");
+      const slug = (modelName.trim() || DEFAULT_OPENROUTER_MODEL_SLUG).replace(/^openrouter:/, "");
       const nextPicker = `openrouter:${slug}`;
       if (willHaveOpenRouterKey) {
         useSessionStore.getState().setModelId(nextPicker);
@@ -153,9 +168,11 @@ export function AirisLlmSettingsModal({ open, onClose }: Props) {
       await load();
       const mid = useSessionStore.getState().modelId;
       if (mid === "openrouter" || mid.startsWith("openrouter:")) {
-        useSessionStore.getState().setModelId("mock");
+        useSessionStore.getState().setModelId(DEFAULT_LLM_MODEL_ID);
       }
-      setMessage("OpenRouter key cleared. Model set to **mock** until you configure another provider.");
+      setMessage(
+        "OpenRouter key cleared. Header **Model** is set to the product default (Nemotron on OpenRouter). Add a key again to call the API.",
+      );
       window.dispatchEvent(new CustomEvent("airis-llm-profile-changed"));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -209,46 +226,22 @@ export function AirisLlmSettingsModal({ open, onClose }: Props) {
           </h2>
         </div>
 
-        <div className="flex shrink-0 gap-1 border-b border-[color:var(--airis-border-glass)] px-4 pt-2">
+        <div className="flex shrink-0 items-center gap-1 border-b border-[color:var(--airis-border-glass)] px-4 pt-2">
+          <div className="rounded-t-lg px-4 py-2 text-xs font-medium bg-[color:rgba(45,212,191,0.12)] text-cyan-100 ring-1 ring-cyan-500/40 ring-b-transparent">
+            API · OpenRouter
+          </div>
           <button
             type="button"
-            className={`rounded-t-lg px-4 py-2 text-xs font-medium transition ${
-              tab === "api"
-                ? "bg-[color:rgba(45,212,191,0.12)] text-cyan-100 ring-1 ring-cyan-500/40 ring-b-transparent"
-                : "text-[color:var(--airis-text-secondary)] hover:bg-[color:rgba(255,255,255,0.04)]"
-            }`}
-            onClick={() => setTab("api")}
+            disabled
+            title="Offline mock mode is paused — use OpenRouter with an API key."
+            className="cursor-not-allowed rounded-t-lg px-4 py-2 text-xs font-medium text-[color:var(--airis-text-tertiary)] opacity-45"
           >
-            API
-          </button>
-          <button
-            type="button"
-            className={`rounded-t-lg px-4 py-2 text-xs font-medium transition ${
-              tab === "local"
-                ? "bg-[color:rgba(45,212,191,0.12)] text-cyan-100 ring-1 ring-cyan-500/40 ring-b-transparent"
-                : "text-[color:var(--airis-text-secondary)] hover:bg-[color:rgba(255,255,255,0.04)]"
-            }`}
-            onClick={() => setTab("local")}
-          >
-            Local
+            Local (paused)
           </button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          {tab === "local" ? (
-            <div className="space-y-3 text-[12px] leading-relaxed text-[color:var(--airis-text-secondary)]">
-              <p>
-                <strong className="text-[color:var(--airis-text-primary)]">Local</strong> uses the built-in{" "}
-                <span className="font-mono text-cyan-200/90">mock</span> model: deterministic rules, no API calls, no
-                keys. Choose <span className="font-mono">mock</span> in the header model picker.
-              </p>
-              <p>
-                Provider keys and budgets apply only on the <strong>API</strong> tab and are stored on the machine
-                running the AIRIS server (<span className="font-mono">DATA_DIR/profiles/default/llm.json</span>).
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-5">
+          <div className="space-y-5">
               <p className="text-[11px] leading-relaxed text-[color:var(--airis-text-secondary)]">
                 OpenRouter and compatible endpoints. After saving, pick{" "}
                 <span className="font-mono text-cyan-200/90">openrouter:…</span> or{" "}
@@ -283,11 +276,17 @@ export function AirisLlmSettingsModal({ open, onClose }: Props) {
                 </span>
                 <input
                   type="text"
+                  list="airis-openrouter-model-suggestions"
                   value={modelName}
                   onChange={(e) => setModelName(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-[color:var(--airis-border-glass)] bg-[color:rgba(6,12,22,0.85)] px-3 py-2 font-mono text-[11px] text-[color:var(--airis-text-primary)] outline-none focus:border-cyan-600/50"
                   spellCheck={false}
                 />
+                <datalist id="airis-openrouter-model-suggestions">
+                  {OPENROUTER_MODEL_NAME_SUGGESTIONS.map((slug) => (
+                    <option key={slug} value={slug} />
+                  ))}
+                </datalist>
               </label>
 
               <label className="block">
@@ -443,7 +442,6 @@ export function AirisLlmSettingsModal({ open, onClose }: Props) {
                 </label>
               </div>
             </div>
-          )}
         </div>
 
         {message ? (
@@ -456,9 +454,7 @@ export function AirisLlmSettingsModal({ open, onClose }: Props) {
         ) : null}
 
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[color:var(--airis-border-glass)] bg-[color:rgba(4,10,18,0.55)] px-5 py-3">
-          {tab === "api" ? (
-            <>
-              <button
+            <button
                 type="button"
                 disabled={busy !== null}
                 onClick={applyDefaults}
@@ -498,16 +494,6 @@ export function AirisLlmSettingsModal({ open, onClose }: Props) {
               >
                 {busy === "save" ? "Saving…" : "Save settings"}
               </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-[color:var(--airis-border-glass)] px-4 py-2 text-[11px] font-medium text-[color:var(--airis-text-secondary)] hover:bg-[color:rgba(255,255,255,0.05)]"
-            >
-              Close
-            </button>
-          )}
         </div>
       </div>
     </div>
