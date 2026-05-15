@@ -3,6 +3,7 @@ import path from "node:path";
 import { v4 as uuid } from "uuid";
 import {
   ChatMessageSchema,
+  DEFAULT_LLM_MODEL_ID,
   LayoutStateSchema,
   type ChatMessage,
   type LayoutState,
@@ -87,7 +88,7 @@ export async function initGlobalFiles(userId: string = DEFAULT_USER_ID): Promise
   await initReferenceLibrary(userId);
   const settingsPath = path.join(globalDir(userId), "settings.json");
   if ((await readTextIfExists(settingsPath)) == null) {
-    await atomicWriteJson(settingsPath, { theme: "iris-deepfield", defaultModelId: "mock" });
+    await atomicWriteJson(settingsPath, { theme: "iris-deepfield", defaultModelId: DEFAULT_LLM_MODEL_ID });
   }
   const modelsPath = path.join(globalDir(userId), "models.json");
   if ((await readTextIfExists(modelsPath)) == null) {

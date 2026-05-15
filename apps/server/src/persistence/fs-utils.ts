@@ -2,6 +2,43 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { z } from "zod";
 
+/** Per-absolute-path write queue. Each entry chains the next write off the previous one. */
+const __writeLocks = new Map<string, Promise<void>>();
+const __writeWaiters = new Map<string, number>();
+
+async function withWriteLock<T>(file: string, fn: () => Promise<T>): Promise<T> {
+  const key = path.resolve(file);
+  const prev = __writeLocks.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const mine = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const chained = prev.then(() => mine);
+  __writeLocks.set(key, chained);
+
+  const depth = (__writeWaiters.get(key) ?? 0) + 1;
+  __writeWaiters.set(key, depth);
+  if (depth >= 2) {
+    console.warn("[fs-utils] write contention", { file: key, depth });
+  }
+
+  try {
+    await prev;
+    return await fn();
+  } finally {
+    release();
+    if (__writeLocks.get(key) === chained) {
+      __writeLocks.delete(key);
+    }
+    const n = (__writeWaiters.get(key) ?? 1) - 1;
+    if (n <= 0) {
+      __writeWaiters.delete(key);
+    } else {
+      __writeWaiters.set(key, n);
+    }
+  }
+}
+
 export async function ensureDir(dir: string): Promise<void> {
   await fs.mkdir(dir, { recursive: true });
 }
@@ -19,29 +56,38 @@ export async function readTextIfExists(file: string): Promise<string | null> {
 
 export async function atomicWriteJson(file: string, data: unknown): Promise<void> {
   await ensureDir(path.dirname(file));
-  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
   const body = `${JSON.stringify(data, null, 2)}\n`;
-  await fs.writeFile(tmp, body, "utf8");
-  await fs.rename(tmp, file);
+  await withWriteLock(file, async () => {
+    const tmp = `${file}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
+    await fs.writeFile(tmp, body, "utf8");
+    await fs.rename(tmp, file);
+  });
 }
 
 export async function atomicWriteText(file: string, text: string): Promise<void> {
   await ensureDir(path.dirname(file));
-  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
-  await fs.writeFile(tmp, text, "utf8");
-  await fs.rename(tmp, file);
+  await withWriteLock(file, async () => {
+    const tmp = `${file}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
+    await fs.writeFile(tmp, text, "utf8");
+    await fs.rename(tmp, file);
+  });
 }
 
 export async function atomicWriteBuffer(file: string, data: Buffer): Promise<void> {
   await ensureDir(path.dirname(file));
-  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
-  await fs.writeFile(tmp, data);
-  await fs.rename(tmp, file);
+  await withWriteLock(file, async () => {
+    const tmp = `${file}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
+    await fs.writeFile(tmp, data);
+    await fs.rename(tmp, file);
+  });
 }
 
 export async function appendJsonl(file: string, line: unknown): Promise<void> {
   await ensureDir(path.dirname(file));
-  await fs.appendFile(file, `${JSON.stringify(line)}\n`, "utf8");
+  const body = `${JSON.stringify(line)}\n`;
+  await withWriteLock(file, async () => {
+    await fs.appendFile(file, body, "utf8");
+  });
 }
 
 /** Parses one JSON value per non-empty line; lines that are not valid JSON are skipped (never throws). */

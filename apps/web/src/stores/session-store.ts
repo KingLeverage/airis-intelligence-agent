@@ -7,6 +7,7 @@ import type {
   ParsedExecutionBlock,
   SkillPromptMetrics,
 } from "@airis/shared";
+import { DEFAULT_LLM_MODEL_ID } from "@airis/shared";
 import { api } from "../lib/api";
 import { useBrowserStore } from "./browser-store";
 import { useSpacesStore, HOME_CHAT_SPACE_LS_KEY } from "./spaces-store";
@@ -229,24 +230,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   lastChatActiveSkillIds: [],
   lastSkillRoutingReasons: [],
   lastSkillPromptMetrics: null,
-  modelId: "mock",
+  modelId: DEFAULT_LLM_MODEL_ID,
   theme: "iris-deepfield",
   runStatus: "idle",
   error: null,
   browserOpen: false,
 
   applyWorkspaceSettings: (settings) => {
-    const cur = get().modelId;
     const incoming = settings.defaultModelId;
-    let nextModel = cur;
+    let nextModel = get().modelId;
     if (incoming !== undefined && incoming !== null && String(incoming).trim() !== "") {
       const inc = String(incoming).trim();
-      /** Persisted spaces often ship with `defaultModelId: "mock"` — do not clobber a real provider the user picked. */
-      if (inc === "mock" && cur !== "mock") {
-        nextModel = cur;
-      } else {
-        nextModel = inc;
-      }
+      /** `mock` is retired from the product default; treat persisted mock as the OpenRouter default. */
+      nextModel = inc === "mock" ? DEFAULT_LLM_MODEL_ID : inc;
     }
     set({
       theme: normalizeTheme(settings.theme, get().theme),
@@ -445,7 +441,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
   },
 
-  setModelId: (modelId: string) => set({ modelId }),
+  setModelId: (modelId: string) => {
+    let id = modelId.trim();
+    if (id === "mock") id = DEFAULT_LLM_MODEL_ID;
+    set({ modelId: id });
+  },
 
   toggleTheme: () =>
     set((s) => {
