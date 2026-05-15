@@ -81,7 +81,7 @@ export function TypingSpeedPanelWidgetView({ record }: { record: WidgetRecord })
         if (grossWpm > prev) patchData({ bestWpm: grossWpm });
       }
     },
-    [done, passage, typed, startedAt, patchData],
+    [done, passage, typed, patchData],
   );
 
   return (

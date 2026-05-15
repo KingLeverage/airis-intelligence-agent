@@ -100,6 +100,7 @@ export async function registerChatRoutes(app: FastifyInstance): Promise<void> {
       activeSkillIds,
       skillPromptMetrics,
       modelId: body.data.modelId,
+      log: req.log,
     });
     try {
       await recordSkillAnalytics(spaceId, skillPromptMetrics, DEFAULT_USER_ID);
@@ -194,6 +195,7 @@ export async function registerChatRoutes(app: FastifyInstance): Promise<void> {
           activeSkillIds,
           skillPromptMetrics,
           modelId: streamModelId,
+          log: req.log,
         });
         try {
           await recordSkillAnalytics(spaceId, skillPromptMetrics, DEFAULT_USER_ID);

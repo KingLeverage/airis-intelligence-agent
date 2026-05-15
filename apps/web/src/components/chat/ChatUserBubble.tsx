@@ -2,10 +2,11 @@ import type { ChatMessage } from "@airis/shared";
 import { BubbleRichText } from "../airis/BubbleRichText";
 
 export type ChatUserBubbleProps = {
-  message: Extract<ChatMessage, { role: "user" }>;
+  message: ChatMessage;
 };
 
 export function ChatUserBubble({ message }: ChatUserBubbleProps) {
+  if (message.role !== "user") return null;
   return (
     <div className="flex justify-end">
       <div className="max-w-[min(100%,22rem)] rounded-2xl rounded-br-md border border-slate-600/50 bg-slate-800/90 px-4 py-2.5 text-sm leading-relaxed text-slate-100 shadow-lg">

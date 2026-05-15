@@ -29,6 +29,7 @@ export const CHAT_PHASE_EXECUTION_TYPES = [
   "space.delete",
   "export.pdf",
   "cli.tool.run",
+  "workflow.run",
 ] as const satisfies readonly ExecutionType[];
 
 export type ChatPhaseExecutionType = (typeof CHAT_PHASE_EXECUTION_TYPES)[number];

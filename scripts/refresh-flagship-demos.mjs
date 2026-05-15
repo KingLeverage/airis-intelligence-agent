@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Re-applies dashboard recipes for seeded Crypto + Research demo spaces.
+ * Re-applies dashboard recipes for seeded flagship demo spaces (see shared `FLAGSHIP_DEMO_TEMPLATE_IDS`).
  * Requires server with AIRIS_ALLOW_FLAGSHIP_DEMO_RECIPE_REFRESH=1 (see apps/server/.env.example).
  *
  * Usage:

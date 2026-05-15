@@ -19,7 +19,7 @@ export type DemoSpaceTemplate = {
   recipe: DashboardRecipe;
   icon: DemoSpaceIconId;
   accent: DemoSpaceAccent;
-  /** Shown on Home Start fast; only Crypto + Research today. */
+  /** Shown on Home flagship row; curated high-signal operator layouts (see `DEMO_SPACE_TEMPLATES`). */
   flagship?: boolean;
   /**
    * Static artwork for Home featured tiles (`apps/web/public/…`), e.g. `/demo-previews/demo-ai-news.svg`.
@@ -72,13 +72,12 @@ export const DEMO_SPACE_TEMPLATES: DemoSpaceTemplate[] = [
     templateId: "demo-pet-wellness",
     name: "Pet wellness · allergens",
     description:
-      "Chart-intelligence flagship: KPI strip, symptom mix donut, findings card, routine comparison, and evidence checklist — tuned for dander / allergy research vignettes.",
+      "Chart-intelligence layout: KPI strip, symptom mix donut, findings card, routine comparison, and evidence checklist — tuned for dander / allergy research vignettes.",
     recipe: "pet-allergy-research-hub",
     icon: "research",
     accent: "mint",
-    flagship: true,
     homePreviewPath: "/demo-previews/demo-pet-wellness.svg",
-    contentRevision: 1,
+    contentRevision: 2,
   },
   {
     templateId: "demo-risk-heatmap",
@@ -88,8 +87,9 @@ export const DEMO_SPACE_TEMPLATES: DemoSpaceTemplate[] = [
     recipe: "risk-heatmap-board",
     icon: "research",
     accent: "coral",
+    flagship: true,
     homePreviewPath: "/demo-previews/demo-risk-heatmap.svg",
-    contentRevision: 1,
+    contentRevision: 2,
   },
   {
     templateId: "demo-task",
@@ -123,7 +123,7 @@ export const DEMO_SPACE_TEMPLATES: DemoSpaceTemplate[] = [
   },
 ];
 
-/** Template ids eligible for flagship widget recipe re-apply (Crypto + Research). */
+/** Template ids eligible for flagship widget recipe re-apply (all `flagship` demos). */
 export const FLAGSHIP_DEMO_TEMPLATE_IDS: string[] = DEMO_SPACE_TEMPLATES.filter((t) => t.flagship).map(
   (t) => t.templateId,
 );

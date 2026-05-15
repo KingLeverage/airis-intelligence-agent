@@ -36,11 +36,27 @@ type Props = {
   onOpenDemo: (spaceId: string) => void;
 };
 
+/** Keep one pinned demo per `demoTemplateId` (legacy seeds could duplicate the same template). */
+function dedupePinnedDemosByTemplate(spaces: SpaceMeta[]): SpaceMeta[] {
+  const byTemplate = new Map<string, SpaceMeta>();
+  const noTemplate: SpaceMeta[] = [];
+  for (const s of spaces) {
+    const tid = s.demoTemplateId?.trim();
+    if (!tid) {
+      noTemplate.push(s);
+      continue;
+    }
+    if (!byTemplate.has(tid)) byTemplate.set(tid, s);
+  }
+  return [...byTemplate.values(), ...noTemplate];
+}
+
 export function FeaturedDemoSections({ demoSpaces, onOpenDemo }: Props) {
   const { flagship, rest } = useMemo(() => {
+    const pinned = dedupePinnedDemosByTemplate(demoSpaces);
     const f: SpaceMeta[] = [];
     const r: SpaceMeta[] = [];
-    for (const s of demoSpaces) {
+    for (const s of pinned) {
       const t = getDemoSpaceTemplate(s.demoTemplateId);
       if (t?.flagship) f.push(s);
       else r.push(s);
