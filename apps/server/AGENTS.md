@@ -26,8 +26,16 @@ the root for files under `apps/server/`.
 - `src/agents/` — Higher-level agent loops (multi-turn orchestration).
 - `src/data-source/` — External data fetchers (separate from `browser/`
   which is for live page automation).
-- `src/skills/` — Reserved for the future SKILL.md loader. Do not put
-  TypeScript handlers here.
+- `src/skills/` — SKILL.md loader and routing. `skill-discovery.ts` scans
+  the repo-root `skills/` tree at chat time; `skill-router.ts` does
+  deterministic per-message routing (pinned → mention → trigger → tag,
+  max 5 active skills); `active-skill-context.ts` budgets and formats
+  the active SKILL.md bodies for injection. `chat-skill-prompt.ts` is
+  the integration point — `composeSystemPromptWithSkills` is what
+  routes/chat.ts and llm/respond.ts call. The `skills/` directory at
+  the repo root is the **source of truth** for skill content; add new
+  capabilities as `skills/<id>/skill.json` + `SKILL.md` rather than
+  hardcoding into `prompt-builder.ts`.
 
 ## The dispatcher is sacred
 
