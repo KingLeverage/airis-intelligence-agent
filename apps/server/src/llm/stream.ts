@@ -1,5 +1,6 @@
 import type { ChatMessage } from "@airis/shared";
 import { mockModelRawText } from "./adapters/mock-adapter.js";
+import { unconfiguredOpenRouterMessage } from "./unconfigured-openrouter-message.js";
 import type { LlmRuntime } from "./resolve-llm-runtime.js";
 import { streamAnthropicTextStream } from "./anthropic-text-stream.js";
 import {
@@ -7,7 +8,10 @@ import {
   openRouterImageOutputModalities,
   prepareOpenRouterImageOutputChat,
 } from "./openai-compatible-chat.js";
-import { applyOpenRouterHistoryBudget, clipOpenRouterUserMessage } from "./openrouter-context-budget.js";
+import {
+  prepareOpenRouterTextChat,
+} from "./openrouter-context-budget.js";
+import { openRouterHistoryMessageCap } from "./openrouter-profile-utils.js";
 
 export type StreamLlmArgs = {
   history: ChatMessage[];
@@ -26,8 +30,18 @@ async function* streamMock(fullText: string): AsyncGenerator<string> {
 
 export async function* streamLlmResponse(args: StreamLlmArgs): AsyncGenerator<string> {
   const rt = args.runtime;
-  const histLimit = rt.kind === "openrouter" ? rt.historyLimit : 24;
+  const profileHistLimit = rt.kind === "openrouter" ? rt.historyLimit : 24;
+  const histLimit =
+    rt.kind === "openrouter"
+      ? openRouterHistoryMessageCap(rt.model, profileHistLimit)
+      : profileHistLimit;
   const recent = args.history.slice(-histLimit);
+
+  if (rt.kind === "unconfigured_openrouter") {
+    const full = unconfiguredOpenRouterMessage(rt.requestedModelId);
+    yield* streamMock(full);
+    return;
+  }
 
   if (rt.kind === "mock") {
     const full = mockModelRawText(args.userMessage);
@@ -52,8 +66,15 @@ export async function* streamLlmResponse(args: StreamLlmArgs): AsyncGenerator<st
       userMessage = p.userMessage;
       recentRows = p.recentRows;
     }
-    recentRows = applyOpenRouterHistoryBudget(recentRows);
-    userMessage = clipOpenRouterUserMessage(userMessage);
+    const prepared = prepareOpenRouterTextChat({
+      model: rt.model,
+      system,
+      userMessage,
+      recentRows,
+    });
+    system = prepared.system;
+    userMessage = prepared.userMessage;
+    recentRows = prepared.recentRows;
     const msgs: { role: "user" | "assistant" | "system"; content: string }[] = [
       { role: "system", content: system },
       ...recentRows,

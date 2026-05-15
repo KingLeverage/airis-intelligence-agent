@@ -1,4 +1,8 @@
-import { capMaxCompletionTokens, OPENROUTER_DEFAULT_BASE } from "./openrouter-profile-utils.js";
+import {
+  capMaxCompletionTokens,
+  openRouterModelContextWindow,
+  OPENROUTER_DEFAULT_BASE,
+} from "./openrouter-profile-utils.js";
 
 export { OPENROUTER_DEFAULT_BASE } from "./openrouter-profile-utils.js";
 
@@ -111,10 +115,13 @@ function completionsUrl(baseUrl: string): string {
 
 function completionMaxTokens(req: OpenAiCompatibleRequest): number | undefined {
   const image = Boolean(openRouterImageOutputModalities(req.model));
+  const contextWindow = image
+    ? OPENROUTER_IMAGE_MODEL_CONTEXT_WINDOW
+    : openRouterModelContextWindow(req.model);
   return capMaxCompletionTokens({
     requested: req.max_tokens,
     messages: req.messages,
-    contextWindow: image ? OPENROUTER_IMAGE_MODEL_CONTEXT_WINDOW : 128_000,
+    contextWindow,
   });
 }
 

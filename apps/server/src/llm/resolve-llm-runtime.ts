@@ -9,6 +9,8 @@ import {
 
 export type LlmRuntime =
   | { kind: "mock" }
+  /** OpenRouter model selected in the UI but profile has no API key (do not silently use mock). */
+  | { kind: "unconfigured_openrouter"; requestedModelId: string }
   | {
       kind: "openrouter";
       apiKey: string;
@@ -29,10 +31,13 @@ function buildOpenRouterRuntime(
   profile: Awaited<ReturnType<typeof readProfileLlm>>,
   model: string,
 ): LlmRuntime | null {
-  const key = profile.openrouter?.apiKey;
+  const key =
+    profile.openrouter?.apiKey?.trim() || process.env.OPENROUTER_API_KEY?.trim();
   if (!key) return null;
   const or = profile.openrouter;
-  const baseUrl = normalizeOpenRouterProviderBase(or?.providerBaseUrl);
+  const baseUrl = normalizeOpenRouterProviderBase(
+    or?.providerBaseUrl ?? process.env.OPENROUTER_BASE_URL,
+  );
   const parsed = parseParamsText(or?.paramsText);
   const max_tokens = or?.maxTokens ?? parsed.max_tokens;
   const temperature = parsed.temperature ?? 0.7;
@@ -42,8 +47,8 @@ function buildOpenRouterRuntime(
     apiKey: key,
     baseUrl,
     model,
-    referer: or?.siteUrl?.trim() || undefined,
-    title: or?.appName?.trim() || undefined,
+    referer: or?.siteUrl?.trim() || process.env.OPENROUTER_HTTP_REFERER?.trim() || undefined,
+    title: or?.appName?.trim() || process.env.OPENROUTER_APP_NAME?.trim() || undefined,
     temperature,
     ...(max_tokens !== undefined ? { max_tokens } : {}),
     historyLimit,
@@ -61,14 +66,16 @@ export async function resolveLlmRuntime(userId: string, modelId: string | undefi
     const model =
       slug || profile.openrouter?.defaultModel?.trim() || DEFAULT_OPENROUTER_MODEL_SLUG;
     const r = buildOpenRouterRuntime(profile, model);
-    return r ?? { kind: "mock" };
+    if (!r) return { kind: "unconfigured_openrouter", requestedModelId: id };
+    return r;
   }
 
   if (id === "openrouter") {
-    const dm = profile.openrouter?.defaultModel?.trim();
-    if (!dm) return { kind: "mock" };
+    const dm =
+      profile.openrouter?.defaultModel?.trim() || DEFAULT_OPENROUTER_MODEL_SLUG;
     const r = buildOpenRouterRuntime(profile, dm);
-    return r ?? { kind: "mock" };
+    if (!r) return { kind: "unconfigured_openrouter", requestedModelId: id };
+    return r;
   }
 
   const anthKey = process.env.ANTHROPIC_API_KEY;

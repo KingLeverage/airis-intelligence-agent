@@ -27,6 +27,19 @@ export async function* streamWidgetBuilder(
 ## Retrieved widget specs (top matches)
 ${fewShot}`;
 
+  if (runtime.kind === "unconfigured_openrouter") {
+    for await (const chunk of streamLlmResponse({
+      history: request.conversationHistory,
+      userMessage: `Widget / panel request:\n${userRequest}`,
+      modelId,
+      system,
+      runtime,
+    })) {
+      yield chunk;
+    }
+    return;
+  }
+
   if (runtime.kind === "mock") {
     const titles = retrieved.map((s) => s.title).join(", ");
     yield `[widget-builder • mock] Matched ${retrieved.length} spec(s) via TF–IDF${titles ? ` — ${titles}` : ""}. Request: ${userRequest.slice(0, 240)}`;

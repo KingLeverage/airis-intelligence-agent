@@ -28,6 +28,7 @@ const PRESET_MODEL_VALUES = new Set([
   "openrouter:anthropic/claude-opus-4.7",
   "openrouter:anthropic/claude-opus-4.7-fast",
   "openrouter:inclusionai/ring-2.6-1t:free",
+  "openrouter:cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
   "openrouter:nvidia/llama-3.3-nemotron-super-49b-v1.5",
 ]);
 
@@ -126,6 +127,9 @@ export function TopRail({ variant, showStartFastReopen, onShowStartFast }: Props
             <option value="openai">openai</option>
             <option value="openrouter">openrouter</option>
             <option value="openrouter:inclusionai/ring-2.6-1t:free">inclusionai/ring-2.6-1t:free</option>
+            <option value="openrouter:cognitivecomputations/dolphin-mistral-24b-venice-edition:free">
+              dolphin-mistral-24b-venice (free)
+            </option>
             <option value="openrouter:openai/gpt-4o-mini">OR 4o-mini</option>
             <option value="openrouter:openai/gpt-4.1-nano">OR 4.1-nano</option>
             <option value="openrouter:openai/gpt-5.4-image-2">OR gpt-5.4-image-2</option>

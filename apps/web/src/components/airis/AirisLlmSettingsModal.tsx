@@ -17,6 +17,7 @@ const DEFAULT_PARAMS = "temperature: 0.2\n";
 /** Shown as completions on the OpenRouter “Model name” field (slug only, no `openrouter:` prefix). */
 const OPENROUTER_MODEL_NAME_SUGGESTIONS = [
   "inclusionai/ring-2.6-1t:free",
+  "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
   "openai/gpt-4o-mini",
   "openai/gpt-4.1-nano",
   "openai/gpt-5.4-image-2",

@@ -32,6 +32,46 @@ export function historyMessageLimitFromBudget(historyPct: number | undefined): n
   return Math.min(32, Math.max(2, n));
 }
 
+/** Conservative total context window for OpenRouter slugs (tokens). Unknown → 128k. */
+export function openRouterModelContextWindow(model: string): number {
+  const m = model.trim().toLowerCase();
+  if (
+    m.includes("dolphin-mistral-24b-venice") ||
+    m.includes("mistral-7b") ||
+    m.includes("/7b") ||
+    m.includes("8b-instruct") ||
+    m.includes("gemma-2-9b") ||
+    m.includes("phi-3")
+  ) {
+    return 32_768;
+  }
+  if (m.includes("gemini-2.0-flash") || m.includes("gpt-4o-mini") || m.includes("gpt-4.1-nano")) {
+    return 128_000;
+  }
+  if (m.includes("claude-opus") || m.includes("claude-3.5-sonnet")) {
+    return 200_000;
+  }
+  if (m.includes("nemotron") || m.includes("ring-2.6")) {
+    return 128_000;
+  }
+  return 128_000;
+}
+
+/** Max completion tokens per reply for `capMaxCompletionTokens` hardCap. */
+export function openRouterCompletionHardCap(contextWindow: number): number {
+  if (contextWindow <= 32_768) return 4_096;
+  if (contextWindow <= 64_000) return 8_192;
+  return 16_384;
+}
+
+/** Cap history turns for narrow-context chat models. */
+export function openRouterHistoryMessageCap(model: string, profileLimit: number): number {
+  const win = openRouterModelContextWindow(model);
+  if (win <= 32_768) return Math.min(profileLimit, 8);
+  if (win <= 64_000) return Math.min(profileLimit, 16);
+  return profileLimit;
+}
+
 /**
  * OpenAI-compatible APIs use `max_tokens` as the **completion (output) budget** for this request, not total context.
  * Requesting ~128k output plus a multi‑k prompt exceeds a 128k window and yields HTTP 400 from OpenRouter.
@@ -46,7 +86,7 @@ export function capMaxCompletionTokens(opts: {
 }): number | undefined {
   if (opts.requested === undefined || !Number.isFinite(opts.requested)) return undefined;
   const win = opts.contextWindow ?? 128_000;
-  const hardCap = opts.hardCap ?? 16_384;
+  const hardCap = opts.hardCap ?? openRouterCompletionHardCap(win);
   const approxIn = Math.ceil(
     opts.messages.reduce((n, m) => n + (m.content?.length ?? 0), 0) / 3.2,
   );

@@ -20,6 +20,19 @@ export async function* streamWorkspaceContext(
 ## Workspace snapshot
 ${formatSnapshotSummary(workspaceSnapshot)}`;
 
+  if (runtime.kind === "unconfigured_openrouter") {
+    for await (const chunk of streamLlmResponse({
+      history: request.conversationHistory,
+      userMessage: question,
+      modelId,
+      system,
+      runtime,
+    })) {
+      yield chunk;
+    }
+    return;
+  }
+
   if (runtime.kind === "mock") {
     yield `[workspace-context • mock] canvas widgets: ${workspaceSnapshot.widgets.length}. Q: ${question.slice(0, 200)}`;
     return;

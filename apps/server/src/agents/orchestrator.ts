@@ -71,6 +71,18 @@ async function* streamDirectAnswer(
   userMessage: string,
 ): AsyncGenerator<string> {
   const system = `You are a concise assistant inside the AIRIS workspace. Answer briefly and helpfully.`;
+  if (runtime.kind === "unconfigured_openrouter") {
+    for await (const c of streamLlmResponse({
+      history,
+      userMessage,
+      modelId,
+      system,
+      runtime,
+    })) {
+      yield c;
+    }
+    return;
+  }
   if (runtime.kind === "mock") {
     yield "[orchestrator • mock] No specialist route matched; general reply mode.";
     return;

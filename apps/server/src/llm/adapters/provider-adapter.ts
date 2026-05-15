@@ -5,10 +5,8 @@ import {
   openRouterImageOutputModalities,
   prepareOpenRouterImageOutputChat,
 } from "../openai-compatible-chat.js";
-import {
-  applyOpenRouterHistoryBudget,
-  clipOpenRouterUserMessage,
-} from "../openrouter-context-budget.js";
+import { prepareOpenRouterTextChat } from "../openrouter-context-budget.js";
+import { openRouterHistoryMessageCap } from "../openrouter-profile-utils.js";
 
 async function anthropicComplete(
   messages: { role: "user" | "assistant"; content: string }[],
@@ -41,11 +39,17 @@ async function anthropicComplete(
 }
 
 export class RuntimeModelAdapter implements ModelCompletionAdapter {
-  constructor(private readonly runtime: Exclude<LlmRuntime, { kind: "mock" }>) {}
+  constructor(
+    private readonly runtime: Exclude<LlmRuntime, { kind: "mock" } | { kind: "unconfigured_openrouter" }>,
+  ) {}
 
   async complete(ctx: ModelCompletionContext): Promise<string> {
     const r = this.runtime;
-    const histLimit = r.kind === "openrouter" ? r.historyLimit : 24;
+    const profileHistLimit = r.kind === "openrouter" ? r.historyLimit : 24;
+    const histLimit =
+      r.kind === "openrouter"
+        ? openRouterHistoryMessageCap(r.model, profileHistLimit)
+        : profileHistLimit;
     const recent = ctx.history.slice(-histLimit);
 
     if (r.kind === "openrouter") {
@@ -64,9 +68,17 @@ export class RuntimeModelAdapter implements ModelCompletionAdapter {
         system = p.system;
         userMessage = p.userMessage;
         recentRows = p.recentRows;
+      } else {
+        const prepared = prepareOpenRouterTextChat({
+          model: r.model,
+          system,
+          userMessage,
+          recentRows,
+        });
+        system = prepared.system;
+        userMessage = prepared.userMessage;
+        recentRows = prepared.recentRows;
       }
-      recentRows = applyOpenRouterHistoryBudget(recentRows);
-      userMessage = clipOpenRouterUserMessage(userMessage);
       const msgs: { role: "user" | "assistant" | "system"; content: string }[] = [
         { role: "system", content: system },
         ...recentRows,
