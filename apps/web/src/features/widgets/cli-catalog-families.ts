@@ -10,6 +10,7 @@ export const CLI_CATALOG_MENU_FAMILIES = [
   { id: "movie-goat", label: "Movie Goat", emoji: "🎬", program: "movie-goat-pp-cli" },
   { id: "pypi", label: "PyPI", emoji: "📦", program: "pypi-pp-cli" },
   { id: "recipe-goat", label: "Recipe Goat", emoji: "🍰", program: "recipe-goat-pp-cli" },
+  { id: "scrape-creators", label: "Scrape Creators", emoji: "📣", program: "scrape-creators-pp-cli" },
   { id: "twilio", label: "Twilio", emoji: "📱", program: "twilio-pp-cli" },
   { id: "x-twitter", label: "X (Twitter)", emoji: "𝕏", program: "x-twitter-pp-cli" },
 ] as const;

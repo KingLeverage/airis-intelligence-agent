@@ -135,7 +135,8 @@ export type CliCatalogCustomProgram =
   | "flight-goat-pp-cli"
   | "movie-goat-pp-cli"
   | "twilio-pp-cli"
-  | "x-twitter-pp-cli";
+  | "x-twitter-pp-cli"
+  | "scrape-creators-pp-cli";
 
 export type CliToolRunResponse = {
   ok: boolean;

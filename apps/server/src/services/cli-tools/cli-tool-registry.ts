@@ -41,6 +41,8 @@ export function familyMetaForCliProgram(program: string): { familyId: string; fa
       return { familyId: "twilio", familyLabel: "Twilio" };
     case "x-twitter-pp-cli":
       return { familyId: "x-twitter", familyLabel: "X (Twitter)" };
+    case "scrape-creators-pp-cli":
+      return { familyId: "scrape-creators", familyLabel: "Scrape Creators" };
     default:
       return { familyId: program, familyLabel: program };
   }
@@ -236,6 +238,16 @@ const BUILTIN: CliToolDefinition[] = [
     installHint:
       "`npx -y @mvanhorn/printing-press install x-twitter --cli-only`. See [README](https://github.com/mvanhorn/printing-press-library/tree/main/library/social-and-messaging/x-twitter).",
     program: "x-twitter-pp-cli",
+    args: ["doctor"],
+    timeoutMs: 60_000,
+  },
+  {
+    key: "pp-scrape-creators-doctor",
+    label: "Scrape Creators — doctor",
+    description: "`scrape-creators-pp-cli doctor` — API key / auth and connectivity check.",
+    installHint:
+      "`npx -y @mvanhorn/printing-press install scrape-creators --cli-only` (binary `scrape-creators-pp-cli` in ~/go/bin). AIRIS prepends that dir when spawning.",
+    program: "scrape-creators-pp-cli",
     args: ["doctor"],
     timeoutMs: 60_000,
   },

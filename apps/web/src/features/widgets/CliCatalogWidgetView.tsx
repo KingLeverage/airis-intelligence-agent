@@ -19,6 +19,7 @@ const FAMILY_ORDER = [
   "movie-goat",
   "pypi",
   "recipe-goat",
+  "scrape-creators",
   "twilio",
   "x-twitter",
 ] as const;
@@ -34,6 +35,7 @@ const DEFAULT_ARGS: Record<CliCatalogCustomProgram, string> = {
   "movie-goat-pp-cli": "doctor",
   "twilio-pp-cli": "doctor",
   "x-twitter-pp-cli": "doctor",
+  "scrape-creators-pp-cli": "doctor",
 };
 
 const DOCS_BY_PROGRAM: Record<CliCatalogCustomProgram, string> = {
@@ -54,6 +56,7 @@ const DOCS_BY_PROGRAM: Record<CliCatalogCustomProgram, string> = {
     "https://github.com/mvanhorn/printing-press-library/tree/main/library/social-and-messaging/twilio",
   "x-twitter-pp-cli":
     "https://github.com/mvanhorn/printing-press-library/tree/main/library/social-and-messaging/x-twitter",
+  "scrape-creators-pp-cli": "https://github.com/mvanhorn/printing-press-library",
 };
 
 const ALL_CUSTOM: readonly CliCatalogCustomProgram[] = [
@@ -66,6 +69,7 @@ const ALL_CUSTOM: readonly CliCatalogCustomProgram[] = [
   "movie-goat-pp-cli",
   "twilio-pp-cli",
   "x-twitter-pp-cli",
+  "scrape-creators-pp-cli",
 ];
 
 function isCliCatalogCustomProgram(p: string): p is CliCatalogCustomProgram {

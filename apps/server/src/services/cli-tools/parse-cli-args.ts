@@ -15,6 +15,7 @@ export const CUSTOM_CLI_PROGRAMS = [
   "movie-goat-pp-cli",
   "twilio-pp-cli",
   "x-twitter-pp-cli",
+  "scrape-creators-pp-cli",
 ] as const;
 export type CustomCliProgram = (typeof CUSTOM_CLI_PROGRAMS)[number];
 
