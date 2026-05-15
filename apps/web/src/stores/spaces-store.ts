@@ -64,7 +64,9 @@ export const useSpacesStore = create<SpacesState>((set, get) => ({
       await get().loadSpaces();
       await get().selectSpace(space.id);
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : String(e) });
+      const msg = e instanceof Error ? e.message : String(e);
+      set({ error: msg });
+      throw e;
     }
   },
 

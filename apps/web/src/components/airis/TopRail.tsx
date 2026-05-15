@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { DEFAULT_LLM_MODEL_ID } from "@airis/shared";
 import { useSpacesStore } from "../../stores/spaces-store";
 import { useWidgetsStore } from "../../stores/widgets-store";
 import { AIRIS_THEMES, useSessionStore } from "../../stores/session-store";
 import { ReferenceLibraryModal } from "./ReferenceLibraryModal";
+import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
 import { WidgetLibraryMenu } from "./WidgetLibraryMenu";
 
 type Props = {
@@ -21,13 +23,18 @@ const PRESET_MODEL_VALUES = new Set([
   "openrouter:openai/gpt-5.4-image-2",
   "openrouter:google/gemini-2.0-flash-001",
   "openrouter:anthropic/claude-3.5-haiku",
+  "openrouter:anthropic/claude-haiku-4.5",
   "openrouter:anthropic/claude-3.5-sonnet",
+  "openrouter:anthropic/claude-opus-4.7",
+  "openrouter:anthropic/claude-opus-4.7-fast",
+  "openrouter:inclusionai/ring-2.6-1t:free",
+  "openrouter:nvidia/llama-3.3-nemotron-super-49b-v1.5",
 ]);
 
 export function TopRail({ variant, showStartFastReopen, onShowStartFast }: Props) {
   const [refLibOpen, setRefLibOpen] = useState(false);
+  const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
   const exitToHome = useSpacesStore((s) => s.exitToHome);
-  const createSpace = useSpacesStore((s) => s.createSpace);
   const space = useWidgetsStore((s) => s.space);
   const modelId = useSessionStore((s) => s.modelId);
   const setModelId = useSessionStore((s) => s.setModelId);
@@ -35,13 +42,13 @@ export function TopRail({ variant, showStartFastReopen, onShowStartFast }: Props
   const theme = useSessionStore((s) => s.theme);
   const toggleTheme = useSessionStore((s) => s.toggleTheme);
   const refreshSpace = useSessionStore((s) => s.refreshSpace);
-  const activeSpaceId = useSpacesStore((s) => s.activeSpaceId);
   const nextTheme = AIRIS_THEMES[(AIRIS_THEMES.indexOf(theme) + 1) % AIRIS_THEMES.length] ?? AIRIS_THEMES[0];
   const showCustomModelOption = !PRESET_MODEL_VALUES.has(modelId);
 
   return (
     <>
       <ReferenceLibraryModal open={refLibOpen} onClose={() => setRefLibOpen(false)} />
+      <CreateWorkspaceDialog open={createWorkspaceOpen} onClose={() => setCreateWorkspaceOpen(false)} />
       <header className="airis-glass-2 relative flex min-h-11 shrink-0 items-center justify-between gap-2 border-b border-[color:var(--airis-border-glass)] px-3 py-2 backdrop-blur-md sm:px-4">
       <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
         {variant === "space" && (
@@ -52,10 +59,7 @@ export function TopRail({ variant, showStartFastReopen, onShowStartFast }: Props
         {variant === "home" && (
           <button
             type="button"
-            onClick={() => {
-              const name = prompt("Workspace name", "New workspace");
-              if (name?.trim()) void createSpace(name.trim());
-            }}
+            onClick={() => setCreateWorkspaceOpen(true)}
             className="shrink-0 rounded-[var(--airis-radius-pill)] border border-[color:var(--airis-border-glass)] bg-[color:rgba(255,255,255,0.04)] px-3 py-1.5 text-[11px] font-medium text-[color:var(--airis-text-primary)] hover:border-[color:var(--airis-border-glass-strong)]"
           >
             + New space
@@ -117,16 +121,23 @@ export function TopRail({ variant, showStartFastReopen, onShowStartFast }: Props
             value={modelId}
             onChange={(e) => setModelId(e.target.value)}
           >
-            <option value="mock">mock</option>
+            <option value={DEFAULT_LLM_MODEL_ID}>nvidia/llama-3.3-nemotron-super-49b-v1.5 (default)</option>
             <option value="anthropic">anthropic</option>
             <option value="openai">openai</option>
             <option value="openrouter">openrouter</option>
+            <option value="openrouter:inclusionai/ring-2.6-1t:free">inclusionai/ring-2.6-1t:free</option>
             <option value="openrouter:openai/gpt-4o-mini">OR 4o-mini</option>
             <option value="openrouter:openai/gpt-4.1-nano">OR 4.1-nano</option>
             <option value="openrouter:openai/gpt-5.4-image-2">OR gpt-5.4-image-2</option>
             <option value="openrouter:google/gemini-2.0-flash-001">OR gemini-flash</option>
             <option value="openrouter:anthropic/claude-3.5-haiku">OR haiku</option>
+            <option value="openrouter:anthropic/claude-haiku-4.5">anthropic/claude-haiku-4.5</option>
             <option value="openrouter:anthropic/claude-3.5-sonnet">OR claude-3.5-sonnet</option>
+            <option value="openrouter:anthropic/claude-opus-4.7">anthropic/claude-opus-4.7</option>
+            <option value="openrouter:anthropic/claude-opus-4.7-fast">anthropic/claude-opus-4.7-fast</option>
+            <option value="mock" disabled title="Offline mock mode is paused — use OpenRouter with an API key.">
+              mock (paused)
+            </option>
             {showCustomModelOption ? (
               <option value={modelId}>
                 {modelId.length > 36 ? `${modelId.slice(0, 34)}…` : modelId}
