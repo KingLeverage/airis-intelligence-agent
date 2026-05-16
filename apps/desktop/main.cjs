@@ -92,19 +92,16 @@ async function ensureBrowserViewReadyForNativeIpc() {
   if (mainWindow.getBrowserView() !== bv) {
     mainWindow.setBrowserView(bv);
   }
-  // Chromium marks BrowserViews positioned entirely outside their parent window's
-  // drawable region as document.visibilityState="hidden" and freezes layout
-  // (innerWidth=0, clientHeight=0). Google Maps then refuses to virtualize results.
-  // Keep the view inside the content bounds; tuck it along the bottom (y just below
-  // the visible area) so it stays visible to Chromium without painting over the shell.
+  // Park the view at a known-good full-content geometry every time, regardless of
+  // whatever a UI panel may have set previously. Chromium freezes layout (clientHeight=0)
+  // for BrowserViews positioned outside the parent window's drawable region, and Google
+  // Maps refuses to virtualize results into a zero-height viewport. The user-sized panel
+  // handler (airis:native-browser:setBounds) flips __airisViewWasUserSized=true, but for
+  // native IPC scrape paths we always want scrape geometry, not panel geometry.
   const winBounds = mainWindow.getContentBounds();
   const desiredWidth = Math.min(1280, Math.max(800, winBounds.width));
   const desiredHeight = Math.min(900, Math.max(600, winBounds.height));
-  const b = bv.getBounds();
-  const needsResize = b.width < 800 || b.height < 600 || b.x < 0 || b.y < 0;
-  if (needsResize) {
-    bv.setBounds({ x: 0, y: winBounds.height - 1, width: desiredWidth, height: desiredHeight });
-  }
+  bv.setBounds({ x: 0, y: 0, width: desiredWidth, height: desiredHeight });
   // Disable background throttling so Maps keeps running JS at full speed.
   try {
     bv.webContents.setBackgroundThrottling(false);
