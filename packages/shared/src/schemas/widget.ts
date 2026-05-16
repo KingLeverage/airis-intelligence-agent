@@ -795,7 +795,7 @@ export const CliCatalogRunEntrySchema = z.object({
   exitCode: z.number().int(),
   ok: z.boolean(),
   durationMs: z.number().nonnegative(),
-  stdout: z.string().max(32_000).optional(),
+  stdout: z.string().max(72_000).optional(),
   stderr: z.string().max(8_000).optional(),
 });
 

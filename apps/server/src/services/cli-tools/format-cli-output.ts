@@ -61,11 +61,15 @@ function summarizeValue(v: unknown, depth: number, seen: WeakSet<object>): strin
     const cap = Math.min(n, MAX_ARRAY_ITEMS);
     for (let i = 0; i < cap; i++) {
       const item = v[i];
-      const line = summarizeValue(item, depth + 1, seen);
-      lines.push(`${i + 1}. ${line.replace(/\n/g, " ")}`);
+      const block = summarizeValue(item, depth + 1, seen);
+      const indented = block
+        .split("\n")
+        .map((ln, j) => (j === 0 ? `${i + 1}. ${ln}` : `   ${ln}`))
+        .join("\n");
+      lines.push(indented);
     }
     if (n > cap) lines.push(`…and ${n - cap} more (truncated for readability).`);
-    return lines.join("\n");
+    return lines.join("\n\n");
   }
 
   const o = v as Record<string, unknown>;

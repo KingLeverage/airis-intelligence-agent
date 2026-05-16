@@ -46,10 +46,10 @@ export async function buildReadableSummary(params: {
   if (!isCliSummaryLlmEnabled()) return heuristic;
 
   let rt = await resolveLlmRuntime(params.userId, params.modelId);
-  if (rt.kind === "mock") {
+  if (rt.kind === "mock" || rt.kind === "unconfigured_openrouter") {
     rt = await resolveLlmRuntime(params.userId, "openrouter");
   }
-  if (rt.kind === "mock") return heuristic;
+  if (rt.kind === "mock" || rt.kind === "unconfigured_openrouter") return heuristic;
 
   const user = buildUserPayload(params.commandLine, params.stdout, params.stderr);
 

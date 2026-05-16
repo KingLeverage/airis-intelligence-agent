@@ -280,6 +280,22 @@ ${payload}
 >>>END`;
   }
 
+  const wantsScrapeCreatorsInstagram =
+    /\bscrape\s+creators\b/i.test(t) ||
+    (/\binstagram\b/i.test(t) && /\breels?\b/i.test(t) && /\b(crude|oil|procurement)\b/i.test(t));
+  if (wantsScrapeCreatorsInstagram) {
+    const qMatch = userMessage.match(/["']([^"'\n]{4,120})["']/);
+    const query = (qMatch?.[1] ?? "crude oil procurement").trim().slice(0, 120) || "crude oil procurement";
+    return `Running **Scrape Creators** (Instagram reels keyword search).
+
+<<<EXECUTION
+type: cli.tool.run
+targetSpace: current
+payload:
+{"program":"scrape-creators-pp-cli","argsText":"--agent instagram list-reels --query \\"${escapeJsonString(query)}\\" --date-posted last-week"}
+>>>END`;
+  }
+
   return `Mock mode — ask to open the browser, paste a URL, create a note, create/delete a workspace (paste a space UUID to delete), or switch to a real model in Model & API settings.`;
 }
 

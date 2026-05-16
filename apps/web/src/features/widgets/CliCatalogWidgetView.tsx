@@ -8,6 +8,8 @@ import {
 } from "../../lib/api";
 import { useWidgetsStore } from "../../stores/widgets-store";
 import { CLI_CATALOG_MENU_FAMILIES } from "./cli-catalog-families";
+import { customArgvLooksLikeProse } from "./cli-custom-argv-guard";
+import { CliRunLinkedInAdsGrid, hasLinkedInAdsStructuredView } from "./CliRunRichDisplay";
 
 const CUSTOM_BUSY = "__custom__";
 
@@ -193,7 +195,7 @@ export function CliCatalogWidgetView({ record }: { record: WidgetRecord }) {
       exitCode: result.exitCode,
       ok: result.ok,
       durationMs: result.durationMs,
-      stdout: result.stdout ? result.stdout.slice(0, 12_000) : undefined,
+      stdout: result.stdout ? result.stdout.slice(0, 72_000) : undefined,
       stderr: result.stderr ? result.stderr.slice(0, 4_000) : undefined,
     };
     const recentRuns = [entry, ...prev].slice(0, 15);
@@ -235,6 +237,24 @@ export function CliCatalogWidgetView({ record }: { record: WidgetRecord }) {
     if (!runsEnabled || busyKey) return;
     setBusyKey(CUSTOM_BUSY);
     const displayKey = `custom:${customProgram}`;
+    if (customArgvLooksLikeProse(argsText)) {
+      appendRun(displayKey, {
+        ok: false,
+        exitCode: 1,
+        stdout: "",
+        stderr: "custom_argv_prose_not_cli_tokens",
+        durationMs: 0,
+        error: "client_validation",
+        commandLine: `${customProgram} ${argsText}`.trim(),
+        readableSummary:
+          "Custom argv must be **CLI tokens** (subcommands and flags), not a full English sentence.\n\n" +
+          "Example for Instagram reels about crude oil procurement:\n" +
+          '`--agent instagram list-reels --query "crude oil procurement" --date-posted last-week`\n\n' +
+          "Or use **chat** (with OpenRouter configured) and ask in natural language — the model will emit `cli.tool.run` with the right argv.",
+      });
+      setBusyKey(null);
+      return;
+    }
     try {
       const result = await api.runCliTool(record.spaceId, {
         program: customProgram,
@@ -407,9 +427,9 @@ export function CliCatalogWidgetView({ record }: { record: WidgetRecord }) {
           spellCheck={false}
         />
         <p className="mt-1 text-[10px] leading-snug text-slate-500">
-          Space-separated tokens; use double quotes so the whole dish name is one argument to{" "}
-          <code className="text-slate-400">goat</code> (otherwise only the first word is the query). No shell
-          metacharacters. Subcommands:{" "}
+          Space-separated **CLI argv** (not a natural-language sentence). Use double quotes so the whole dish name is
+          one argument to <code className="text-slate-400">goat</code> (otherwise only the first word is the query). No
+          shell metacharacters. Subcommands:{" "}
           <a className="text-cyan-500 underline" href={DOCS_BY_PROGRAM[customProgram]} target="_blank" rel="noreferrer">
             {customProgram} README
           </a>
@@ -429,16 +449,23 @@ export function CliCatalogWidgetView({ record }: { record: WidgetRecord }) {
               const cmd = typeof r.commandLine === "string" ? r.commandLine : key;
               const summary = typeof r.readableSummary === "string" ? r.readableSummary : "";
               const out = typeof r.stdout === "string" ? r.stdout : "";
+              const linkedInCards = out ? hasLinkedInAdsStructuredView(out) : false;
               return (
                 <li key={`${key}-${i}`} className="rounded border border-slate-800/80 bg-black/25 p-2">
                   <div className={ok ? "font-medium text-emerald-400" : "font-medium text-amber-400"}>
                     {key} — exit {ex}
                   </div>
                   <div className="mt-0.5 font-mono text-[10px] text-slate-500">{cmd}</div>
+                  {out ? <CliRunLinkedInAdsGrid stdout={out} /> : null}
                   {summary ? (
-                    <pre className="mt-2 whitespace-pre-wrap break-words font-sans text-[11px] leading-relaxed text-slate-200">
-                      {summary}
-                    </pre>
+                    <details className="mt-2 rounded border border-slate-800/60 bg-slate-950/40 px-2 py-1" open={!linkedInCards}>
+                      <summary className="cursor-pointer text-[11px] font-medium text-slate-400">
+                        Text summary {linkedInCards ? "(heuristic / LLM)" : ""}
+                      </summary>
+                      <pre className="mt-2 whitespace-pre-wrap break-words font-sans text-[11px] leading-relaxed text-slate-200">
+                        {summary}
+                      </pre>
+                    </details>
                   ) : null}
                   {out && !summary ? (
                     <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-[10px] text-slate-500">

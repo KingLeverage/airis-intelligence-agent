@@ -246,7 +246,7 @@ const BUILTIN: CliToolDefinition[] = [
     label: "Scrape Creators — doctor",
     description: "`scrape-creators-pp-cli doctor` — API key / auth and connectivity check.",
     installHint:
-      "`npx -y @mvanhorn/printing-press install scrape-creators --cli-only` (binary `scrape-creators-pp-cli` in ~/go/bin). AIRIS prepends that dir when spawning.",
+      "Set `SCRAPE_CREATORS_API_KEY_AUTH` in `apps/server/.env` (see `.env.example`). Install: `npx -y @mvanhorn/printing-press install scrape-creators --cli-only` (binary `scrape-creators-pp-cli` in ~/go/bin; AIRIS prepends that dir when spawning).",
     program: "scrape-creators-pp-cli",
     args: ["doctor"],
     timeoutMs: 60_000,
