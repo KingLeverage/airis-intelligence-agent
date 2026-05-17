@@ -1,0 +1,24 @@
+{
+  "id": "html-card-video",
+  "name": "HTML Card Video Repair",
+  "description": "Fix or build html-card widgets containing YouTube embeds. Ensures real video ids from Browser context, no placeholder embeds, no demo footers.",
+  "version": "0.1.0",
+  "category": "widgets",
+  "tags": ["youtube", "embed", "iframe", "video", "html-card", "media"],
+  "triggers": [
+    "youtube", "embed", "iframe", "video id", "watch?v=",
+    "html-card", "html card", "fix the video", "fix the embed",
+    "replace the video", "wrong video", "placeholder video",
+    "demo footer", "demo only"
+  ],
+  "allowedExecutionTypes": [
+    "browser.navigate",
+    "widget.create",
+    "widget.update",
+    "widget.delete"
+  ],
+  "recommendedWidgets": ["html-card", "research-card"],
+  "promptHint": "Use when the user wants to add, fix, or replace a YouTube embed inside an html-card widget.",
+  "entryInstructionFile": "SKILL.md",
+  "enabledByDefault": true
+}

@@ -1,0 +1,34 @@
+{
+  "id": "browser-automation",
+  "name": "Browser Automation",
+  "description": "Navigate, click, type, scroll, and evaluate against the live or transcribed browser. Includes Playwright/static-mirror caveats, search-URL encoding, and the box-office / movie-table workflow.",
+  "version": "0.1.0",
+  "category": "browser",
+  "tags": ["browser", "navigate", "click", "scroll", "page", "scrape", "playwright", "youtube", "google", "search", "yelp", "box-office", "movies"],
+  "triggers": [
+    "browse", "browser", "navigate", "open url", "go to", "visit",
+    "click", "type", "scroll", "page", "website", "url", "http",
+    "google", "search", "search for", "look up", "find",
+    "yelp", "directory",
+    "youtube", "watch", "video",
+    "box office", "movie", "movies", "film", "films", "gross", "weekend", "opening", "top-grossing", "highest-grossing", "released",
+    "transcript", "transcription", "preview", "mirror",
+    "playwright", "evaluate"
+  ],
+  "allowedExecutionTypes": [
+    "browser.navigate",
+    "browser.click",
+    "browser.type",
+    "browser.scroll",
+    "browser.back",
+    "browser.evaluate",
+    "widget.create",
+    "widget.update",
+    "widget.createMany",
+    "workspace.compose"
+  ],
+  "recommendedWidgets": ["note", "html-card", "research-card", "comparison-panel", "metric-grid", "heatmap-panel"],
+  "promptHint": "Use whenever the user asks to browse, navigate, click, scroll, search the web, look up movie/box-office data, or interact with a page transcription.",
+  "entryInstructionFile": "SKILL.md",
+  "enabledByDefault": true
+}
